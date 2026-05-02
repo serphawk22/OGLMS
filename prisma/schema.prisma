@@ -53,8 +53,11 @@ model Course {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   creatorId      String
   creator        User         @relation("CourseCreator", fields: [creatorId], references: [id])
-  modules        Module[]
-  enrollments    Enrollment[]
+  modules          Module[]
+  assignments      Assignment[]
+  readingMaterials ReadingMaterial[]
+  quizzes          Quiz[]
+  enrollments      Enrollment[]
 
   @@index([organizationId])
   @@index([creatorId])
@@ -103,4 +106,44 @@ model DailyBite {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
+}
+
+model Assignment {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  driveLink      String?
+  courseId       String
+  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ReadingMaterial {
+  id        String   @id @default(cuid())
+  title     String
+  link      String
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Quiz {
+  id        String     @id @default(cuid())
+  title     String
+  courseId  String
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions Question[]
+  createdAt DateTime   @default(now())
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  quizId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  type          String   // "MCQ" or "ESSAY"
+  text          String
+  options       String[] // Only for MCQ
+  correctOption Int?     // Index of correct option (0-3) for MCQ
+  points        Int      @default(1)
 }
