@@ -96,7 +96,9 @@ export default async function CourseBuilderPage({ params }: { params: Promise<{ 
           </div>
           
           <div className="flex gap-3">
-            <Button variant="outline" className="text-slate-700 bg-white">Preview as Student</Button>
+            <Link href={`/student/courses/${course.id}`}>
+              <Button variant="outline" className="text-slate-700 bg-white">Preview as Student</Button>
+            </Link>
             
             <form action={togglePublish}>
               <input type="hidden" name="courseId" value={course.id} />
@@ -184,9 +186,11 @@ export default async function CourseBuilderPage({ params }: { params: Promise<{ 
                                   {lessonIndex + 1}. {lesson.title}
                                 </span>
                               </div>
-                              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                Edit Settings
-                              </Button>
+                              <Link href={`/instructor/courses/${courseId}/lessons/${lesson.id}`}>
+                                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Edit Settings
+                                </Button>
+                              </Link>
                             </div>
                           ))}
                         </div>
