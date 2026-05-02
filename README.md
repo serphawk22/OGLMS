@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎓 Enterprise Multi-Tenant LMS
 
-## Getting Started
+A high-performance, multi-tenant Learning Management System built with Next.js App Router, Prisma, PostgreSQL, and a custom Edge-compatible JWT authentication engine.
 
-First, run the development server:
+## 🚀 Tech Stack
+- **Framework:** Next.js 16.2 (App Router)
+- **Database:** PostgreSQL (Hosted via Neon)
+- **ORM:** Prisma 7 (with `@prisma/adapter-pg` for Edge compatibility)
+- **Authentication:** Custom JWT (using `jose` for Edge Middleware and `bcryptjs`)
+- **Styling:** Tailwind CSS & shadcn/ui components
 
+## 🏗️ Architecture Overview
+This platform uses **Row-Level Multi-Tenancy**. This means:
+1. **Organizations:** Instructors can create isolated "Workspaces" (e.g., "Masai School").
+2. **Roles:** Users exist as `ADMIN` (Workspace Creator), `INSTRUCTOR` (Co-teachers), or `STUDENT`.
+3. **Data Isolation:** All Courses, Daily Bites, and Enrollments are strictly tied to a specific `organizationId`. 
+
+---
+
+## 💻 Local Setup Instructions
+
+Follow these steps exactly to get the project running on your local machine.
+
+### Step 1: Clone the Repository
+Open your terminal and run:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/serphawk22/lms-project.git
+cd lms-project
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Step 2: Install Dependencies
+Install all required NPM packages:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Step 3: Configure Environment Variables
+You must connect the app to a database and set a secure secret for the authentication tokens.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a new file in the root folder named exactly `.env`
 
-## Learn More
+Paste the following template into the file:
+```env
+# Connect to your PostgreSQL database (Neon recommended)
+DATABASE_URL="postgresql://[USER]:[PASSWORD]@[HOST]:5432/[DATABASE_NAME]?sslmode=require"
 
-To learn more about Next.js, take a look at the following resources:
+# Secret used to sign JWT tokens (can be any long random string locally)
+JWT_SECRET="super_secret_local_dev_key_12345"
+```
+*(Ask the repository owner for the development database string if you are sharing a Neon database).*
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Step 4: Sync the Database (Prisma)
+Before starting the server, you must push the Prisma schema to your database and generate the local Prisma Client. Run this command:
+```bash
+npx prisma db push
+npx prisma generate
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Step 5: Start the Development Server
+Run the local Next.js server:
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🧪 How to Test the Authentication Flow
+Because this is a multi-tenant system, you cannot just "sign up" into a void. Follow this exact flow to test the system locally:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Create an Admin:** Go to `/register`. Select "I'm an Instructor" -> "Create Workspace". Name your workspace and register.
+2. **Get the Invite Code:** Once logged in, you will be redirected to `/instructor`. You will see a blue box with a Workspace Invite Code. Copy this code.
+3. **Create a Student/Co-Teacher:** Open an Incognito window. Go to `/register`. Select "I'm a Student" (or Join as Instructor) and paste the Invite Code.
+4. **Verify:** Check the Admin dashboard in your main window—you will see the "Total Students" or "Active Instructors" metric update live!
+
+---
+
+## 📂 Key Directory Structure
+- **src/app/api/auth/*** - Custom registration, login, and logout routes.
+- **src/proxy.ts** - Edge middleware protecting the `/student` and `/instructor` routes.
+- **src/lib/prisma.ts** - Global Prisma client setup with the pg-adapter.
+- **prisma/schema.prisma** - The master database schema defining the multi-tenant architecture.
