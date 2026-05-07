@@ -1,82 +1,148 @@
-# 🎓 Enterprise Multi-Tenant LMS
+# LMS Platform
 
-A high-performance, multi-tenant Learning Management System built with Next.js App Router, Prisma, PostgreSQL, and a custom Edge-compatible JWT authentication engine.
-
-## 🚀 Tech Stack
-- **Framework:** Next.js 16.2 (App Router)
-- **Database:** PostgreSQL (Hosted via Neon)
-- **ORM:** Prisma 7 (with `@prisma/adapter-pg` for Edge compatibility)
-- **Authentication:** Custom JWT (using `jose` for Edge Middleware and `bcryptjs`)
-- **Styling:** Tailwind CSS & shadcn/ui components
-
-## 🏗️ Architecture Overview
-This platform uses **Row-Level Multi-Tenancy**. This means:
-1. **Organizations:** Instructors can create isolated "Workspaces" (e.g., "Masai School").
-2. **Roles:** Users exist as `ADMIN` (Workspace Creator), `INSTRUCTOR` (Co-teachers), or `STUDENT`.
-3. **Data Isolation:** All Courses, Daily Bites, and Enrollments are strictly tied to a specific `organizationId`. 
+A full-stack Learning Management System (LMS) built with **Next.js 16**, **Prisma**, **PostgreSQL (Neon)**, **ZEGOCLOUD** live classroom, and **OpenAI** AI chatbot.
 
 ---
 
-## 💻 Local Setup Instructions
+## Tech Stack
 
-Follow these steps exactly to get the project running on your local machine.
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16 (App Router), React, Tailwind CSS, shadcn/ui |
+| Backend | Next.js API Routes (Node.js runtime) |
+| Database | PostgreSQL via Neon (serverless), Prisma ORM |
+| Auth | JWT (`jose`) + HTTP-only cookies |
+| Live Class | ZEGOCLOUD UIKit |
+| AI Chatbot | OpenAI GPT-4o / GPT-4o-mini |
+| Email | Nodemailer (SMTP / Ethereal for dev) |
+| Real-time | 30-second polling + `router.refresh()` |
 
-### Step 1: Clone the Repository
-Open your terminal and run:
-```bash
-git clone https://github.com/serphawk22/lms-project.git
-cd lms-project
+---
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── api/                    # All API routes (Node.js runtime)
+│   │   ├── auth/               # login, register
+│   │   ├── assignments/        # submit, grade
+│   │   ├── chat/               # AI chatbot + history
+│   │   ├── instructor/         # expertise, meets
+│   │   ├── live-session/       # status updates
+│   │   ├── reviews/            # course reviews CRUD
+│   │   ├── student/            # profile, enroll, activity, notifications, events, meets
+│   │   ├── summarize/          # AI text summarizer
+│   │   ├── webhooks/           # ZEGOCLOUD webhooks
+│   │   └── zego-token/         # ZEGOCLOUD token endpoint
+│   ├── instructor/             # Instructor dashboard + course builder
+│   ├── student/                # Student dashboard + course view + profile
+│   ├── login/                  # Login page
+│   ├── register/               # Registration page
+│   └── meet/[roomId]/          # Live classroom room
+├── components/                 # Reusable UI components
+└── lib/
+    ├── prisma.ts               # Prisma singleton
+    ├── notifications.ts        # Notification + Calendar event helpers
+    └── mail.ts                 # Email helper (Nodemailer)
 ```
 
-### Step 2: Install Dependencies
-Install all required NPM packages:
+---
+
+## Quick Setup (After Extracting ZIP)
+
+### 1. Install Dependencies
+
 ```bash
 npm install
 ```
 
-### Step 3: Configure Environment Variables
-You must connect the app to a database and set a secure secret for the authentication tokens.
+### 2. Configure Environment Variables
 
-Create a new file in the root folder named exactly `.env`
+The `.env` file is included. For a fresh deployment, update:
 
-Paste the following template into the file:
 ```env
-# Connect to your PostgreSQL database (Neon recommended)
-DATABASE_URL="postgresql://[USER]:[PASSWORD]@[HOST]:5432/[DATABASE_NAME]?sslmode=require"
+DATABASE_URL="your_postgresql_connection_string"
+JWT_SECRET="your_strong_secret_key"
+OPENAI_API_KEY="your_openai_key"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
-# Secret used to sign JWT tokens (can be any long random string locally)
-JWT_SECRET="super_secret_local_dev_key_12345"
+# ZEGOCLOUD credentials
+NEXT_PUBLIC_ZEGO_APP_ID=your_app_id
+NEXT_PUBLIC_ZEGO_APP_SIGN="your_app_sign"
+ZEGO_SERVER_SECRET="your_server_secret"
 ```
-*(Ask the repository owner for the development database string if you are sharing a Neon database).*
 
-### Step 4: Sync the Database (Prisma)
-Before starting the server, you must push the Prisma schema to your database and generate the local Prisma Client. Run this command:
+### 3. Sync Database Schema
+
 ```bash
 npx prisma db push
 npx prisma generate
 ```
 
-### Step 5: Start the Development Server
-Run the local Next.js server:
+### 4. Start Development Server
+
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## 🧪 How to Test the Authentication Flow
-Because this is a multi-tenant system, you cannot just "sign up" into a void. Follow this exact flow to test the system locally:
+## User Roles
 
-1. **Create an Admin:** Go to `/register`. Select "I'm an Instructor" -> "Create Workspace". Name your workspace and register.
-2. **Get the Invite Code:** Once logged in, you will be redirected to `/instructor`. You will see a blue box with a Workspace Invite Code. Copy this code.
-3. **Create a Student/Co-Teacher:** Open an Incognito window. Go to `/register`. Select "I'm a Student" (or Join as Instructor) and paste the Invite Code.
-4. **Verify:** Check the Admin dashboard in your main window—you will see the "Total Students" or "Active Instructors" metric update live!
+| Role | Access |
+|------|--------|
+| **INSTRUCTOR / ADMIN** | Create courses, modules, lessons, assignments, quizzes, live sessions. View student submissions and grade them. |
+| **STUDENT** | Browse and enroll in published courses. Watch videos, submit assignments, take quizzes, join live classes, leave reviews. |
+
+### Registration Flow
+- **Instructor**: Register with `role = INSTRUCTOR` + organization name → creates a new org, assigned `ADMIN` role
+- **Student**: Register with `role = STUDENT` + existing `organizationId` → joins that org as `STUDENT`
 
 ---
 
-## 📂 Key Directory Structure
-- **src/app/api/auth/*** - Custom registration, login, and logout routes.
-- **src/proxy.ts** - Edge middleware protecting the `/student` and `/instructor` routes.
-- **src/lib/prisma.ts** - Global Prisma client setup with the pg-adapter.
-- **prisma/schema.prisma** - The master database schema defining the multi-tenant architecture.
+## Key Features
+
+### Instructor Dashboard
+- Create & publish courses (modules, lessons, reading materials, assignments, quizzes)
+- Schedule and start ZEGOCLOUD live classes with automatic email + in-app notifications to enrolled students
+- View and grade student assignment submissions
+- Real-time enrolled student count (from `Enrollment` table)
+- Editable expertise/skills list
+
+### Student Dashboard
+- Browse all published courses in the organization
+- One-click enrollment with instant UI feedback
+- Track progress: learning hours, daily streak, achievement badges
+- AI course chatbot (GPT-4o-mini) with file upload support
+- Calendar of upcoming events, notification bell
+- Leave and edit course reviews
+
+### Real-Time Sync
+- Dashboards refresh every 30 seconds via `router.refresh()`
+- Activity tracking: video views, material opens, assignment submissions → feeds streak and recent activity
+- Notifications created on enrollment, new modules, assignments, and live session scheduling
+
+---
+
+## Database Schema
+
+Key models: `User`, `Organization`, `OrganizationMember`, `Course`, `Module`, `Lesson`, `ReadingMaterial`, `Assignment`, `AssignmentSubmission`, `Quiz`, `Question`, `Enrollment`, `Review`, `LiveSession`, `Notification`, `Event`, `Chat`, `ChatMessage`
+
+After any schema changes:
+```bash
+npx prisma db push
+npx prisma generate
+```
+
+---
+
+## Production Checklist
+
+- [ ] Change `JWT_SECRET` to a strong random value
+- [ ] Set `NEXT_PUBLIC_APP_URL` to your production domain
+- [ ] Configure real SMTP credentials in `.env` for email delivery
+- [ ] Set `NODE_ENV=production` in your deployment environment
+- [ ] Run `npm run build` to validate there are no TypeScript/build errors
