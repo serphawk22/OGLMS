@@ -3,20 +3,22 @@ import { redirect } from "next/navigation";
 import { jwtVerify } from "jose";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/LogoutButton";
-import { 
-  BookOpen, 
-  PlayCircle, 
-  Bell, 
-  GraduationCap, 
-  Building, 
-  Clock, 
-  ChevronRight,
+import { NotificationsDropdown } from "@/components/NotificationsDropdown";
+import { CalendarDropdown } from "@/components/CalendarDropdown";
+import { CourseCard } from "@/components/CourseCard";
+import {
+  BookOpen,
+  PlayCircle,
+  Building,
+  Clock,
   HelpCircle,
   Sparkles,
-  Video
+  Video,
+  Bell,
+  Radio,
 } from "lucide-react";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
@@ -50,23 +52,54 @@ export default async function StudentDashboard() {
   const org = membership.organization;
 
   // FETCH REAL CONTENT FOR THIS ORGANIZATION
-  const [courses, dailyBites, quizzes] = await Promise.all([
+  // Step 1: Get enrolled course IDs first (needed to filter live sessions)
+  const enrollments = await prisma.enrollment.findMany({
+    where: { userId: user.id },
+    select: { courseId: true },
+  });
+  const enrolledCourseIds = enrollments.map((e) => e.courseId);
+
+  // Step 2: Fetch everything else in parallel
+  const [allCourses, dailyBites, quizzes, liveSessions] = await Promise.all([
+    // All published courses in the org
     prisma.course.findMany({
       where: { organizationId: org.id, published: true },
-      take: 3
+      orderBy: { id: 'desc' },
     }),
     prisma.dailyBite.findMany({
       where: { organizationId: org.id },
-      orderBy: { date: 'desc' }, // Updated from createdAt to date as per schema
+      orderBy: { date: 'desc' },
       take: 1
     }),
     prisma.quiz.findMany({
       where: { course: { organizationId: org.id } },
       take: 3
-    })
+    }),
+    // Only sessions for enrolled courses, ordered by soonest first
+    enrolledCourseIds.length > 0
+      ? prisma.liveSession.findMany({
+          where: {
+            courseId: { in: enrolledCourseIds },
+            status: { in: ["SCHEDULED", "ONGOING"] },
+          },
+          include: { course: { select: { title: true, id: true } } },
+          orderBy: { scheduledAt: "asc" },
+          take: 10,
+        })
+      : Promise.resolve([]),
   ]);
 
+  // Build a Set of enrolled courseIds for O(1) lookup
+  const enrolledSet = new Set(enrolledCourseIds);
   const latestBite = dailyBites[0];
+
+  // Build course list with enrollment state
+  const courses = allCourses.map((c) => ({
+    id: c.id,
+    title: c.title,
+    orgName: org.name,
+    enrolled: enrolledSet.has(c.id),
+  }));
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
@@ -83,12 +116,19 @@ export default async function StudentDashboard() {
               <h1 className="text-xl font-bold text-slate-900">{org.name}</h1>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-             <div className="text-right hidden md:block">
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden md:block">
+              <Link href="/student/profile" className="hover:text-blue-600 transition-colors">
                 <p className="text-sm font-bold">{user.name}</p>
-                <p className="text-xs text-slate-500">Student ID: {user.id.slice(0, 8)}</p>
-             </div>
-             <LogoutButton/>
+              </Link>
+              <p className="text-xs text-slate-500">Student ID: {user.id.slice(0, 8)}</p>
+            </div>
+            {/* Navbar icon buttons — client components */}
+            <div className="flex items-center gap-1">
+              <NotificationsDropdown />
+              <CalendarDropdown />
+            </div>
+            <LogoutButton />
           </div>
         </div>
       </div>
@@ -131,39 +171,17 @@ export default async function StudentDashboard() {
             </CardContent>
           </Card>
 
-          
-          <div className="space-y-4">
+                   <div className="space-y-4">
             <div className="flex justify-between items-center">
                <h3 className="text-lg font-bold flex items-center gap-2">
-                 < BookOpen className="w-5 h-5 text-blue-600"/> My Active Courses
+                 <BookOpen className="w-5 h-5 text-blue-600"/> Available Courses
                </h3>
-               <Button variant="ghost" size="sm" className="text-blue-600">View All</Button>
+               <span className="text-xs text-slate-500 font-medium">{courses.filter(c => c.enrolled).length}/{courses.length} enrolled</span>
             </div>
             
             <div className="grid grid-cols-1 gap-4">
               {courses.map(course => (
-                <Card key={course.id} className="border-slate-200 shadow-sm hover:border-blue-300 transition-all cursor-pointer group">
-                  <CardContent className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-slate-100 p-3 rounded-lg group-hover:bg-blue-50 transition-colors">
-                        <GraduationCap className="w-6 h-6 text-slate-600 group-hover:text-blue-600"/>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900">{course.title}</h4>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                           <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> Updated 2d ago</span>
-                           <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                           <span>{org.name}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <Link href={`/student/courses/${course.id}`}>
-                      <Button variant="ghost" className="group-hover:translate-x-1 transition-transform">
-                        Continue <ChevronRight className="w-4 h-4 ml-1"/>
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
+                <CourseCard key={course.id} course={course} />
               ))}
               {courses.length === 0 && (
                 <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-medium">
@@ -178,6 +196,65 @@ export default async function StudentDashboard() {
         <div className="space-y-8">
           
           
+          {/* LIVE SESSIONS CARD */}
+          <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+            <CardHeader className="pb-3 border-b border-slate-50">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Radio className="w-4 h-4 text-red-500" /> Live Classes
+                {liveSessions.some(s => s.status === "ONGOING") && (
+                  <span className="ml-auto text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse font-bold">
+                    LIVE
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="divide-y divide-slate-100 p-0">
+              {liveSessions.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400">
+                  No live classes scheduled. Enroll in courses to see their sessions.
+                </div>
+              ) : (
+                liveSessions.map((session) => {
+                  const isLive = session.status === "ONGOING";
+                  const scheduledTime = new Date(session.scheduledAt).toLocaleString("en-IN", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                  return (
+                    <div key={session.id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          isLive ? "bg-red-100 animate-pulse" : "bg-blue-50"
+                        }`}>
+                          <Video className={`w-4 h-4 ${isLive ? "text-red-600" : "text-blue-500"}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 truncate">{session.title}</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {session.course.title} · 📅 {scheduledTime}
+                          </p>
+                        </div>
+                      </div>
+                      <Link href={`/meet/${session.roomId}`}>
+                        <Button size="sm" className={`text-xs h-7 shrink-0 ${
+                          isLive
+                            ? "bg-red-600 hover:bg-red-700 text-white"
+                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                        }`}>
+                          {isLive ? "Join Live" : "Join Class"}
+                        </Button>
+                      </Link>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ANNOUNCEMENTS */}
           <Card className="border-slate-200 shadow-sm bg-white">
             <CardHeader className="pb-3 border-b border-slate-50">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -185,10 +262,12 @@ export default async function StudentDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-               <div className="p-4 border-l-4 border-amber-500 bg-amber-50/50">
-                  <p className="text-sm font-bold text-amber-900">Sprint Review Tomorrow</p>
-                  <p className="text-xs text-amber-700 mt-1">Ensure all assignments are submitted by 9 AM for the weekly review.</p>
-               </div>
+              <div className="p-4 border-l-4 border-blue-400 bg-blue-50/50">
+                <p className="text-sm font-bold text-blue-900">Stay Updated</p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Check the 🔔 bell icon for the latest notifications from your instructors — new modules, assignments, and live sessions.
+                </p>
+              </div>
             </CardContent>
           </Card>
 

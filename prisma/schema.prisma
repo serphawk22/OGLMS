@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -22,13 +23,18 @@ model Organization {
 }
 
 model User {
-  id          String               @id @default(cuid())
-  email       String               @unique
-  password    String               // ADDED for custom JWT auth
-  name        String?
-  memberships OrganizationMember[]
-  enrollments Enrollment[]
-  coursesCreated Course[]          @relation("CourseCreator")
+  id              String               @id @default(cuid())
+  email           String               @unique
+  password        String               // ADDED for custom JWT auth
+  name            String?
+  expertise       String[]             @default([])
+  memberships     OrganizationMember[]
+  enrollments     Enrollment[]
+  coursesCreated  Course[]             @relation("CourseCreator")
+  notifications   Notification[]
+  chats           Chat[]
+  submissions     AssignmentSubmission[]
+  reviews         Review[]
 }
 
 model OrganizationMember {
@@ -45,19 +51,23 @@ model OrganizationMember {
 }
 
 model Course {
-  id             String       @id @default(cuid())
-  title          String
-  description    String?
-  published      Boolean      @default(false)
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  creatorId      String
-  creator        User         @relation("CourseCreator", fields: [creatorId], references: [id])
+  id               String       @id @default(cuid())
+  title            String
+  description      String?
+  published        Boolean      @default(false)
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creatorId        String
+  creator          User         @relation("CourseCreator", fields: [creatorId], references: [id])
   modules          Module[]
   assignments      Assignment[]
   readingMaterials ReadingMaterial[]
   quizzes          Quiz[]
   enrollments      Enrollment[]
+  events           Event[]
+  liveSessions     LiveSession[]
+  chats            Chat[]
+  reviews          Review[]
 
   @@index([organizationId])
   @@index([creatorId])
@@ -109,14 +119,33 @@ model DailyBite {
 }
 
 model Assignment {
-  id             String   @id @default(cuid())
+  id             String                 @id @default(cuid())
   title          String
   description    String?
   driveLink      String?
   courseId       String
-  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  course         Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions    AssignmentSubmission[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+}
+
+model AssignmentSubmission {
+  id           String     @id @default(cuid())
+  assignmentId String
+  studentId    String
+  driveLink    String
+  grade        Int?
+  maxGrade     Int        @default(100)
+  feedback     String?
+  submittedAt  DateTime   @default(now())
+  gradedAt     DateTime?
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
 }
 
 model ReadingMaterial {
@@ -146,4 +175,92 @@ model Question {
   options       String[] // Only for MCQ
   correctOption Int?     // Index of correct option (0-3) for MCQ
   points        Int      @default(1)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  type      String   // "COURSE" | "ASSIGNMENT" | "MODULE"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Event {
+  id        String    @id @default(cuid())
+  title     String
+  date      DateTime
+  type      String    // "ASSIGNMENT_DEADLINE" | "MODULE_PUBLISH" | "COURSE_PUBLISHED"
+  courseId  String?
+  course    Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+}
+
+enum LiveSessionStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+}
+
+model LiveSession {
+  id           String            @id @default(cuid())
+  roomId       String            @unique
+  title        String
+  courseId     String
+  course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status       LiveSessionStatus @default(SCHEDULED)
+  scheduledAt  DateTime          @default(now())
+  recordingUrl String?
+  createdAt    DateTime          @default(now())
+
+  @@index([courseId])
+}
+
+// --- AI Chat History ---
+
+model Chat {
+  id        String        @id @default(cuid())
+  userId    String
+  courseId  String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@index([userId])
+  @@index([courseId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  chatId    String
+  role      String   // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+}
+
+// --- Course Reviews ---
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      // 1-5 stars
+  comment   String
+  courseId  String
+  studentId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, studentId])
+  @@index([courseId])
+  @@index([studentId])
 }

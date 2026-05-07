@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, BookOpen, FileText, CheckCircle, PlusCircle, LayoutList, Video, Trash2, HelpCircle, ExternalLink, GripVertical } from "lucide-react";
+import { ArrowLeft, BookOpen, FileText, CheckCircle, LayoutList, Video, Trash2, HelpCircle, ExternalLink, GripVertical, Radio, Link2 } from "lucide-react";
+import { notifyEnrolledStudents, createEvent } from "@/lib/notifications";
+import { randomBytes } from "crypto";
+import { StartClassButton } from "@/components/StartClassButton";
+import { SubmissionsPanel } from "@/components/SubmissionsPanel";
+import { sendLiveClassEmail } from "@/lib/mail";
 
 // --- SERVER ACTIONS ---
 
@@ -17,6 +22,22 @@ async function createModule(formData: FormData) {
   const courseId = formData.get("courseId") as string;
   if (title && courseId) {
     await prisma.module.create({ data: { title, courseId } });
+    // Calendar event: module published now
+    await createEvent({
+      title: `New Module: ${title}`,
+      date: new Date(),
+      type: "MODULE_PUBLISH",
+      courseId,
+    });
+    // Notify enrolled students
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { title: true } });
+    if (course) {
+      await notifyEnrolledStudents({
+        courseId,
+        message: `New module "${title}" has been added to "${course.title}".`,
+        type: "MODULE",
+      });
+    }
     revalidatePath(`/instructor/courses/${courseId}`);
   }
 }
@@ -49,8 +70,30 @@ async function createAssignment(formData: FormData) {
   const description = formData.get("description") as string;
   const driveLink = formData.get("driveLink") as string;
   const courseId = formData.get("courseId") as string;
+  const deadlineRaw = formData.get("deadline") as string;
+
   if (title && courseId) {
     await prisma.assignment.create({ data: { title, description, driveLink, courseId } });
+
+    // Calendar event: assignment deadline (default 7 days from now if not provided)
+    const deadlineDate = deadlineRaw ? new Date(deadlineRaw) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await createEvent({
+      title: `Assignment Due: ${title}`,
+      date: deadlineDate,
+      type: "ASSIGNMENT_DEADLINE",
+      courseId,
+    });
+
+    // Notify enrolled students
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { title: true } });
+    if (course) {
+      await notifyEnrolledStudents({
+        courseId,
+        message: `New assignment "${title}" has been posted in "${course.title}". Due: ${deadlineDate.toLocaleDateString("en-IN")}.`,
+        type: "ASSIGNMENT",
+      });
+    }
+
     revalidatePath(`/instructor/courses/${courseId}`);
   }
 }
@@ -71,7 +114,27 @@ async function togglePublish(formData: FormData) {
   "use server";
   const courseId = formData.get("courseId") as string;
   const isPublished = formData.get("isPublished") === "true";
-  await prisma.course.update({ where: { id: courseId }, data: { published: !isPublished } });
+  const course = await prisma.course.update({
+    where: { id: courseId },
+    data: { published: !isPublished },
+    select: { title: true },
+  });
+
+  // Only fire events/notifications when PUBLISHING (not unpublishing)
+  if (!isPublished) {
+    await createEvent({
+      title: `Course Published: ${course.title}`,
+      date: new Date(),
+      type: "COURSE_PUBLISHED",
+      courseId,
+    });
+    await notifyEnrolledStudents({
+      courseId,
+      message: `"${course.title}" is now live! Start learning today.`,
+      type: "COURSE",
+    });
+  }
+
   revalidatePath(`/instructor/courses/${courseId}`);
   revalidatePath(`/instructor`);
 }
@@ -120,6 +183,108 @@ async function deleteQuiz(formData: FormData) {
   revalidatePath(`/instructor/courses/${courseId}`);
 }
 
+async function createLiveSession(formData: FormData) {
+  "use server";
+  const title = formData.get("title") as string;
+  const courseId = formData.get("courseId") as string;
+  const scheduledAtRaw = formData.get("scheduledAt") as string;
+
+  if (title && courseId) {
+    const roomId = randomBytes(8).toString("hex");
+    // Parse scheduledAt — default to now if instructor didn't pick a time
+    const scheduledAt = scheduledAtRaw ? new Date(scheduledAtRaw) : new Date();
+
+    const session = await prisma.liveSession.create({
+      data: { roomId, title, courseId, status: "SCHEDULED", scheduledAt },
+      include: {
+        course: {
+          include: {
+            creator: { select: { name: true, email: true } },
+          },
+        },
+      },
+    });
+
+    // ── Notifications (email + in-app) ─────────────────────────────────────
+    // Wrapped in try/catch so any failure is logged but NEVER breaks room creation
+    try {
+      // 1. Collect enrolled student emails for this course
+      let studentEmails: string[] = [];
+      const enrollments = await prisma.enrollment.findMany({
+        where: { courseId },
+        include: { user: { select: { email: true } } },
+      });
+
+      if (enrollments.length > 0) {
+        studentEmails = enrollments.map((e) => e.user.email);
+      } else {
+        // Fallback: all STUDENT members of the same organisation
+        const orgMembers = await prisma.organizationMember.findMany({
+          where: {
+            organizationId: session.course.organizationId,
+            role: "STUDENT",
+          },
+          include: { user: { select: { email: true } } },
+        });
+        studentEmails = orgMembers.map((m) => m.user.email);
+      }
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const joinLink = `${appUrl}/meet/${roomId}`;
+      const instructorName = session.course.creator?.name || "Your Instructor";
+      const courseName = session.course.title;
+
+      if (studentEmails.length > 0) {
+        // 2. Rich HTML email — subject: "New Live Class Scheduled"
+        await sendLiveClassEmail({
+          to: studentEmails,
+          courseName,
+          sessionTitle: title,
+          scheduledAt,
+          instructorName,
+          joinLink,
+        });
+        console.log(
+          `[createLiveSession] 📧 Email sent to ${studentEmails.length} student(s) for session "${title}"`
+        );
+
+        // 3. In-app notification for all enrolled students
+        await notifyEnrolledStudents({
+          courseId,
+          message: `📡 New live class "${title}" scheduled for ${courseName}. Scheduled: ${scheduledAt.toLocaleString("en-IN")}. Join: ${joinLink}`,
+          type: "COURSE",
+        });
+      } else {
+        console.log("[createLiveSession] No enrolled students found to notify.");
+      }
+    } catch (notifErr) {
+      // Log but never re-throw — session creation succeeds regardless
+      console.error("[createLiveSession] Notification step failed (non-fatal):", notifErr);
+    }
+    // ───────────────────────────────────────────────────────────────────────
+
+    revalidatePath(`/instructor/courses/${courseId}`);
+  }
+}
+
+async function deleteLiveSession(formData: FormData) {
+  "use server";
+  const id = formData.get("id") as string;
+  const courseId = formData.get("courseId") as string;
+  await prisma.liveSession.delete({ where: { id } });
+  revalidatePath(`/instructor/courses/${courseId}`);
+}
+
+async function markSessionOngoing(formData: FormData) {
+  "use server";
+  const id = formData.get("id") as string;
+  const courseId = formData.get("courseId") as string;
+  const roomId = formData.get("roomId") as string;
+  await prisma.liveSession.update({ where: { id }, data: { status: "ONGOING" } });
+  revalidatePath(`/instructor/courses/${courseId}`);
+  redirect(`/meet/${roomId}`);
+}
+
 // --- PAGE COMPONENT ---
 
 export default async function CourseBuilderPage({ 
@@ -138,11 +303,35 @@ export default async function CourseBuilderPage({
       modules: { orderBy: { id: 'asc' }, include: { lessons: { orderBy: { id: 'asc' } } } },
       assignments: { orderBy: { createdAt: 'desc' } },
       readingMaterials: { orderBy: { createdAt: 'desc' } },
-      quizzes: { include: { questions: true } }
+      quizzes: { include: { questions: true } },
+      liveSessions: { orderBy: { createdAt: 'desc' } },
     }
   });
 
   if (!course) redirect("/instructor");
+
+  // Fetch submissions for all assignments in this course
+  type SubmissionWithStudent = {
+    id: string; assignmentId: string; studentId: string;
+    driveLink: string; grade: number | null; maxGrade: number;
+    feedback: string | null; submittedAt: Date; gradedAt: Date | null;
+    student: { id: string; name: string | null; email: string };
+  };
+  const submissionsMap = new Map<string, SubmissionWithStudent[]>();
+  try {
+    const allSubs = await prisma.assignmentSubmission.findMany({
+      where: { assignmentId: { in: course.assignments.map((a) => a.id) } },
+      include: { student: { select: { id: true, name: true, email: true } } },
+      orderBy: { submittedAt: 'desc' },
+    }) as SubmissionWithStudent[];
+    for (const s of allSubs) {
+      if (!submissionsMap.has(s.assignmentId)) submissionsMap.set(s.assignmentId, []);
+      submissionsMap.get(s.assignmentId)!.push(s);
+    }
+  } catch {
+    // silently degrade — submissions show as empty
+  }
+
 
   return (
     <div className="min-h-screen bg-[#f8f9fa] p-8 text-slate-900">
@@ -182,6 +371,7 @@ export default async function CourseBuilderPage({
             <Link href={`?tab=reading`}><Button variant={tab === "reading" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "reading" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><FileText className="w-4 h-4 mr-2" /> Reading Materials</Button></Link>
             <Link href={`?tab=assignments`}><Button variant={tab === "assignments" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "assignments" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><CheckCircle className="w-4 h-4 mr-2" /> Assignments</Button></Link>
             <Link href={`?tab=quizzes`}><Button variant={tab === "quizzes" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "quizzes" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><HelpCircle className="w-4 h-4 mr-2" /> Quizzes & Tests</Button></Link>
+            <Link href={`?tab=live`}><Button variant={tab === "live" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "live" ? "bg-red-100 text-red-700 font-semibold" : "text-slate-600"}`}><Radio className="w-4 h-4 mr-2" /> Live Classes</Button></Link>
           </div>
 
           <div className="md:col-span-3">
@@ -261,14 +451,54 @@ export default async function CourseBuilderPage({
                       <div className="space-y-2"><Label>Title</Label><Input name="title" required placeholder="Final Project"/></div>
                       <div className="space-y-2"><Label>Description</Label><Textarea name="description" placeholder="Instructions..."/></div>
                       <div className="space-y-2"><Label>Problem Statement (Drive)</Label><Input name="driveLink" placeholder="https://drive..."/></div>
+                      <div className="space-y-2">
+                        <Label>Deadline <span className="text-slate-400 font-normal">(optional — defaults to 7 days)</span></Label>
+                        <Input name="deadline" type="datetime-local" className="bg-white"/>
+                      </div>
                       <Button type="submit" className="w-full bg-blue-600 text-white">Add Assignment</Button>
                     </form>
                   </CardContent>
                 </Card>
                 {course.assignments.map((asgn) => (
-                  <Card key={asgn.id} className="p-6 flex justify-between items-start bg-white border-slate-200 shadow-sm">
-                    <div><h3 className="font-bold text-lg">{asgn.title}</h3><p className="text-sm text-slate-500">{asgn.description}</p></div>
-                    <form action={deleteResource}><input type="hidden" name="id" value={asgn.id} /><input type="hidden" name="type" value="assignment" /><input type="hidden" name="courseId" value={courseId} /><Button type="submit" variant="ghost" className="text-red-500"><Trash2 className="w-4 h-4"/></Button></form>
+                  <Card key={asgn.id} className="p-0 bg-white border-slate-200 shadow-sm overflow-hidden">
+                    <div className="h-1 w-full bg-amber-400" />
+                    <div className="p-5">
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-lg">{asgn.title}</h3>
+                          {asgn.description && <p className="text-sm text-slate-500 mt-1">{asgn.description}</p>}
+                          {asgn.driveLink && (
+                            <a href={asgn.driveLink} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline mt-1 flex items-center gap-1">
+                              <ExternalLink className="w-3 h-3" /> View Problem Statement
+                            </a>
+                          )}
+                        </div>
+                        <form action={deleteResource} className="shrink-0">
+                          <input type="hidden" name="id" value={asgn.id} />
+                          <input type="hidden" name="type" value="assignment" />
+                          <input type="hidden" name="courseId" value={courseId} />
+                          <Button type="submit" variant="ghost" className="text-red-500"><Trash2 className="w-4 h-4"/></Button>
+                        </form>
+                      </div>
+
+                      {/* Submissions panel */}
+                      <SubmissionsPanel
+                        assignmentId={asgn.id}
+                        assignmentTitle={asgn.title}
+                        initialSubmissions={(submissionsMap.get(asgn.id) ?? []).map((s) => ({
+                          id: s.id,
+                          studentId: s.studentId,
+                          driveLink: s.driveLink,
+                          grade: s.grade,
+                          maxGrade: s.maxGrade,
+                          feedback: s.feedback ?? null,
+                          submittedAt: s.submittedAt.toISOString(),
+                          gradedAt: s.gradedAt?.toISOString() ?? null,
+                          student: s.student,
+                        }))}
+                      />
+                    </div>
                   </Card>
                 ))}
                 {course.assignments.length === 0 && <p className="text-center py-12 text-slate-400">No assignments created yet.</p>}
@@ -371,6 +601,118 @@ export default async function CourseBuilderPage({
                   </Card>
                 ))}
                 {course.quizzes.length === 0 && <p className="text-center py-12 text-slate-400">No quizzes created yet.</p>}
+              </div>
+            )}
+
+            {/* LIVE CLASSES TAB */}
+            {tab === "live" && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Radio className="w-5 h-5 text-red-500" /> Live Classes
+                  </h2>
+                </div>
+
+                {/* Create session form */}
+                <Card className="border-slate-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Schedule a New Live Class</CardTitle>
+                    <p className="text-sm text-slate-500 mt-1">Students will receive an email + in-app notification automatically.</p>
+                  </CardHeader>
+                  <CardContent>
+                    <form action={createLiveSession} className="space-y-4">
+                      <input type="hidden" name="courseId" value={courseId} />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Session Title</Label>
+                          <Input name="title" required placeholder="e.g. Week 3 – React Hooks Deep Dive" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>
+                            Scheduled Date &amp; Time
+                            <span className="ml-1 text-slate-400 font-normal text-xs">(optional)</span>
+                          </Label>
+                          <Input name="scheduledAt" type="datetime-local" className="bg-white" />
+                        </div>
+                      </div>
+                      <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white">
+                        <Radio className="w-4 h-4 mr-2" /> Create &amp; Notify Students
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+
+                {/* Sessions list */}
+                {course.liveSessions.length === 0 ? (
+                  <p className="text-center py-12 text-slate-400">No live sessions created yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {course.liveSessions.map((session) => (
+                      <Card key={session.id} className={`border shadow-sm bg-white ${
+                        session.status === "ONGOING" ? "border-red-300 ring-1 ring-red-200" : "border-slate-200"
+                      }`}>
+                        <CardContent className="p-5 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                              session.status === "ONGOING" ? "bg-red-100 animate-pulse" :
+                              session.status === "COMPLETED" ? "bg-slate-100" : "bg-blue-50"
+                            }`}>
+                              <Video className={`w-5 h-5 ${
+                                session.status === "ONGOING" ? "text-red-600" :
+                                session.status === "COMPLETED" ? "text-slate-400" : "text-blue-600"
+                              }`} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-slate-900 truncate">{session.title}</p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                                  session.status === "ONGOING" ? "bg-red-100 text-red-700" :
+                                  session.status === "COMPLETED" ? "bg-slate-100 text-slate-500" :
+                                  "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {session.status === "ONGOING" ? "● LIVE" : session.status}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  🕐 {new Date(session.scheduledAt).toLocaleString("en-IN", {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  })}
+                                </span>
+                                <span className="text-xs text-slate-400 font-mono">ID: {session.roomId.slice(0, 8)}…</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {session.recordingUrl && (
+                              <Link href={session.recordingUrl} target="_blank">
+                                <Button variant="outline" size="sm" className="text-blue-600 border-blue-200">
+                                  <Link2 className="w-3 h-3 mr-1" /> Recording
+                                </Button>
+                              </Link>
+                            )}
+                            {session.status === "SCHEDULED" && (
+                              <StartClassButton sessionId={session.id} roomId={session.roomId} />
+                            )}
+                            {session.status === "ONGOING" && (
+                              <Link href={`/meet/${session.roomId}`}>
+                                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4">
+                                  <Video className="w-3 h-3 mr-1.5" /> Rejoin Room
+                                </Button>
+                              </Link>
+                            )}
+                            <form action={deleteLiveSession}>
+                              <input type="hidden" name="id" value={session.id} />
+                              <input type="hidden" name="courseId" value={courseId} />
+                              <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:text-red-600">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </form>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

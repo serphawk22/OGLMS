@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
+export const runtime = "nodejs";
+
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -45,7 +47,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ summary }, { status: 200 });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("OpenAI API Route Error:", error);
     return NextResponse.json(
       { error: "An error occurred while generating the summary." },

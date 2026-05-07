@@ -24,20 +24,80 @@ async function removeMember(formData: FormData) {
 
 async function createCourse(formData: FormData) {
   "use server";
-  const title = formData.get("title") as string;
-  const orgId = formData.get("orgId") as string;
-  const creatorId = formData.get("creatorId") as string;
 
-  if (title && orgId && creatorId) {
-    await prisma.course.create({
+  // --- 1. Extract fields
+  const rawTitle    = formData.get("title");
+  const rawOrgId    = formData.get("orgId");
+  const rawCreatorId = formData.get("creatorId");
+
+  console.log("[createCourse] raw formData values:", {
+    title:     rawTitle,
+    orgId:     rawOrgId,
+    creatorId: rawCreatorId,
+  });
+
+  // --- 2. Type-coerce and trim
+  const title     = typeof rawTitle     === "string" ? rawTitle.trim()     : "";
+  const orgId     = typeof rawOrgId     === "string" ? rawOrgId.trim()     : "";
+  const creatorId = typeof rawCreatorId === "string" ? rawCreatorId.trim() : "";
+
+  // --- 3. Validate required fields
+  if (!title) {
+    console.error("[createCourse] Validation failed: 'title' is missing or empty.");
+    return;
+  }
+  if (!orgId) {
+    console.error("[createCourse] Validation failed: 'orgId' is missing or empty. Check the hidden input.");
+    return;
+  }
+  if (!creatorId) {
+    console.error("[createCourse] Validation failed: 'creatorId' is missing or empty. Check the hidden input.");
+    return;
+  }
+
+  // --- 4. Verify the org and creator actually exist in the DB
+  try {
+    const [orgExists, userExists] = await Promise.all([
+      prisma.organization.findUnique({ where: { id: orgId }, select: { id: true } }),
+      prisma.user.findUnique({ where: { id: creatorId }, select: { id: true } }),
+    ]);
+
+    if (!orgExists) {
+      console.error(`[createCourse] DB check failed: Organization with id "${orgId}" not found.`);
+      return;
+    }
+    if (!userExists) {
+      console.error(`[createCourse] DB check failed: User (creator) with id "${creatorId}" not found.`);
+      return;
+    }
+
+    console.log("[createCourse] Validation passed. Inserting course:", { title, orgId, creatorId });
+
+    // --- 5. Prisma insert — matches schema: title, organizationId, creatorId, published
+    const course = await prisma.course.create({
       data: {
         title,
         organizationId: orgId,
-        creatorId: creatorId,
-        published: false
-      }
+        creatorId,
+        published: true,
+      },
     });
+
+    console.log("[createCourse] Course created successfully. id:", course.id);
+
     revalidatePath("/instructor");
+    redirect(`/instructor/courses/${course.id}`);
+
+  } catch (err: unknown) {
+    // Distinguish redirect (Next.js throws internally) from real errors
+    if (
+      err instanceof Error &&
+      (err.message === "NEXT_REDIRECT" || err.message.includes("NEXT_REDIRECT"))
+    ) {
+      throw err; // let Next.js handle the redirect
+    }
+    console.error("[createCourse] Unexpected error during course creation:", err);
+    // Return without crashing; the form simply stays on the page
   }
 }
 
@@ -66,8 +126,11 @@ export default async function InstructorDashboard() {
   const isFounder = membership.role === "ADMIN";
 
   // FETCH ALL DATA INCLUDING COURSES
-  const [studentCount, instructorCount, courses, allMembers] = await Promise.all([
-    prisma.organizationMember.count({ where: { organizationId: org.id, role: "STUDENT" } }),
+  const [enrolledStudentCount, instructorCount, courses, allMembers] = await Promise.all([
+    // Real enrolled student count across all courses in this org
+    prisma.enrollment.count({
+      where: { course: { organizationId: org.id } },
+    }),
     prisma.organizationMember.count({ where: { organizationId: org.id, role: "INSTRUCTOR" } }),
     prisma.course.findMany({ 
       where: { organizationId: org.id },
@@ -94,7 +157,12 @@ export default async function InstructorDashboard() {
               <span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-700 font-semibold">{membership.role}</span>
             </div>
           </div>
-          <LogoutButton/>
+          <div className="flex items-center gap-3">
+            <Link href="/instructor/profile">
+              <Button variant="outline" className="border-slate-200 hover:bg-slate-50">My Profile</Button>
+            </Link>
+            <LogoutButton/>
+          </div>
         </div>
 
         
@@ -105,7 +173,7 @@ export default async function InstructorDashboard() {
               <GraduationCap className="h-4 w-4 text-slate-400"/>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{studentCount}</div>
+              <div className="text-2xl font-bold">{enrolledStudentCount}</div>
             </CardContent>
           </Card>
           <Card className="border-slate-200 shadow-none">

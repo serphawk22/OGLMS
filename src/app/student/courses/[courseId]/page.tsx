@@ -3,98 +3,515 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, PlayCircle, FileText, CheckCircle, ExternalLink, BookOpen } from "lucide-react";
+import {
+  ArrowLeft, PlayCircle, FileText, CheckCircle, ExternalLink,
+  BookOpen, ClipboardList, BookMarked, LayoutList, HelpCircle, Radio, Video, Link2, Star
+} from "lucide-react";
+import { CourseChatbot } from "@/components/CourseChatbot";
+import { AssignmentSubmitForm } from "@/components/AssignmentSubmitForm";
+import { CourseReviewSection } from "@/components/CourseReviewSection";
+import { ActivityLink } from "@/components/ActivityLink";
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
 
-export default async function StudentCourseView({ params }: { params: Promise<{ courseId: string }> }) {
+export default async function StudentCourseView({ 
+  params,
+  searchParams
+}: { 
+  params: Promise<{ courseId: string }>,
+  searchParams: Promise<{ tab?: string }>
+}) {
   const resolvedParams = await params;
   const courseId = resolvedParams.courseId;
-  
+  const resolvedSearchParams = await searchParams;
+  const tab = resolvedSearchParams.tab || "modules";
+
+  // Get logged-in student ID from JWT cookie
+  let studentId: string | null = null;
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+    if (token) {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET || "secret");
+      const { payload } = await jwtVerify(token, secret);
+      studentId = (payload.userId as string) ?? null;
+    }
+  } catch { /* not logged in */ }
+
   const course = await prisma.course.findUnique({
     where: { id: courseId },
     include: {
       modules: {
-        orderBy: { id: 'asc' },
-        include: { lessons: { orderBy: { id: 'asc' } } }
-      }
-    }
+        orderBy: { id: "asc" },
+        include: { lessons: { orderBy: { id: "asc" } } },
+      },
+      readingMaterials: { orderBy: { createdAt: "desc" } },
+      assignments: { orderBy: { createdAt: "desc" } },
+      quizzes: { include: { questions: true } },
+      liveSessions: { orderBy: { createdAt: "desc" } },
+    },
   });
 
   if (!course) redirect("/student");
 
+  // ── Enrollment guard ─────────────────────────────────────────────────────────
+  // Redirect to dashboard if student is not logged in or not enrolled in this course.
+  // Instructors can preview via the instructor dashboard without enrollment.
+  if (studentId) {
+    const enrollment = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: studentId, courseId } },
+      select: { id: true },
+    });
+    if (!enrollment) redirect("/student");
+  } else {
+    redirect("/login");
+  }
+
+  // Fetch this student's submissions
+  type SubmissionRow = {
+    id: string; assignmentId: string; driveLink: string;
+    grade: number | null; maxGrade: number; feedback: string | null;
+    submittedAt: Date; gradedAt: Date | null;
+  };
+  const submissionMap = new Map<string, SubmissionRow>();
+  try {
+    const subs = await prisma.assignmentSubmission.findMany({
+      where: {
+        studentId: studentId!,
+        assignmentId: { in: course.assignments.map((a) => a.id) },
+      },
+      select: {
+        id: true, assignmentId: true, driveLink: true,
+        grade: true, maxGrade: true, feedback: true,
+        submittedAt: true, gradedAt: true,
+      },
+    });
+    for (const s of subs) submissionMap.set(s.assignmentId, s);
+  } catch {
+    // silently fall back to no-submission state
+  }
+
   return (
-    <div className="min-h-screen bg-white text-slate-900">
-      
+    <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
       {/* Top Navbar */}
-      <div className="bg-slate-900 text-white p-4 flex items-center justify-between shadow-md">
+      <div className="bg-slate-900 text-white p-4 flex items-center justify-between shadow-md sticky top-0 z-10">
         <div className="flex items-center gap-4">
-          <Link href="/instructor">
+          <Link href="/student">
             <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800">
-              <ArrowLeft className="w-4 h-4 mr-2"/> Exit Preview
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
             </Button>
           </Link>
-          <div className="h-6 w-px bg-slate-700"></div>
+          <div className="h-6 w-px bg-slate-700" />
           <h1 className="text-lg font-bold">{course.title}</h1>
         </div>
-        <div className="text-xs font-medium bg-blue-600 px-3 py-1.5 rounded-full">Student Preview Mode</div>
+        <div className="text-xs font-medium bg-blue-600 px-3 py-1.5 rounded-full">Student View</div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-8 pt-12 space-y-8">
+      <div className="max-w-6xl mx-auto p-8 space-y-6">
         
-        <div className="text-center space-y-4 mb-12">
-          <h2 className="text-3xl font-bold tracking-tight">Course Curriculum</h2>
-          <p className="text-slate-500">Access your modules and required reading materials below.</p>
+        {/* Header */}
+        <div className="border-b border-slate-200 pb-6">
+          <h2 className="text-3xl font-bold tracking-tight">Course Content</h2>
+          <p className="text-slate-500 mt-2">Navigate through modules, materials, and live sessions using the sidebar.</p>
         </div>
 
-        {course.modules.length === 0 ? (
-          <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
-            No modules have been published for this course yet.
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pt-4">
+          
+          {/* SIDEBAR TABS */}
+          <div className="space-y-2">
+            <Link href={`?tab=modules`}>
+              <Button variant={tab === "modules" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "modules" ? "bg-blue-100 text-blue-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
+                <LayoutList className="w-4 h-4 mr-3" /> Modules
+              </Button>
+            </Link>
+            <Link href={`?tab=reading`}>
+              <Button variant={tab === "reading" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "reading" ? "bg-violet-100 text-violet-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
+                <BookMarked className="w-4 h-4 mr-3" /> Reading Materials
+              </Button>
+            </Link>
+            <Link href={`?tab=assignments`}>
+              <Button variant={tab === "assignments" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "assignments" ? "bg-amber-100 text-amber-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
+                <ClipboardList className="w-4 h-4 mr-3" /> Assignments
+              </Button>
+            </Link>
+            <Link href={`?tab=quizzes`}>
+              <Button variant={tab === "quizzes" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "quizzes" ? "bg-emerald-100 text-emerald-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
+                <HelpCircle className="w-4 h-4 mr-3" /> Quizzes
+              </Button>
+            </Link>
+            <Link href={`?tab=live`}>
+              <Button variant={tab === "live" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "live" ? "bg-red-100 text-red-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
+                <Radio className="w-4 h-4 mr-3" /> Live Classes
+              </Button>
+            </Link>
+            <Link href={`?tab=reviews`}>
+              <Button variant={tab === "reviews" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "reviews" ? "bg-amber-100 text-amber-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
+                <Star className="w-4 h-4 mr-3" /> Reviews
+              </Button>
+            </Link>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {course.modules.map((module, index) => (
-              <Card key={module.id} className="border-slate-200 shadow-sm overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b border-slate-100 py-4">
-                  <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-blue-600"/>
-                    Module {index + 1}: {module.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100">
-                    {module.lessons.length === 0 ? (
-                      <div className="p-4 text-sm text-slate-500 text-center">No materials posted yet.</div>
-                    ) : (
-                      module.lessons.map((lesson, lessonIndex) => (
-                        <div key={lesson.id} className="flex items-center justify-between p-4 hover:bg-blue-50/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <FileText className="w-5 h-5 text-slate-400"/>
-                            <span className="font-medium text-slate-700">
-                              {lessonIndex + 1}. {lesson.title}
-                            </span>
-                          </div>
-                          
-                          {/* If a Drive link exists, render the access button */}
-                          {lesson.videoUrl ? (
-                            <Link href={lesson.videoUrl} target="_blank" rel="noopener noreferrer">
-                              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                                Access Material <ExternalLink className="w-3 h-3 ml-2"/>
-                              </Button>
-                            </Link>
-                          ) : (
-                            <Button size="sm" variant="outline" disabled className="text-slate-400">
-                              No Link Provided
-                            </Button>
-                          )}
-                        </div>
-                      ))
-                    )}
+
+          {/* MAIN CONTENT AREA */}
+          <div className="md:col-span-3">
+            
+            {/* ---- MODULES ---- */}
+            {tab === "modules" && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <LayoutList className="w-6 h-6 text-blue-600" />
+                  <h3 className="text-2xl font-bold text-slate-800">Course Modules</h3>
+                </div>
+                
+                {course.modules.length === 0 ? (
+                  <div className="text-center py-16 text-slate-500 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    No modules have been published for this course yet.
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                ) : (
+                  <div className="space-y-4">
+                    {course.modules.map((module, index) => (
+                      <Card key={module.id} className="border-slate-200 shadow-sm overflow-hidden bg-white hover:border-blue-200 transition-colors">
+                        <CardHeader className="bg-slate-50 border-b border-slate-100 py-4">
+                          <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <BookOpen className="w-5 h-5 text-blue-500" />
+                            Module {index + 1}: {module.title}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="divide-y divide-slate-100">
+                            {module.lessons.length === 0 ? (
+                              <div className="p-6 text-sm text-slate-400 text-center bg-slate-50/50">No lessons posted yet.</div>
+                            ) : (
+                              module.lessons.map((lesson, lessonIndex) => (
+                                <div key={lesson.id} className="flex items-center justify-between p-4 hover:bg-blue-50/50 transition-colors">
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                      <PlayCircle className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <span className="font-semibold text-slate-700">
+                                      {lessonIndex + 1}. {lesson.title}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    {lesson.videoUrl && (
+                                      <ActivityLink
+                                        href={lesson.videoUrl}
+                                        type="VIDEO"
+                                        message={`Watched video: ${lesson.title}`}
+                                      >
+                                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                                          <PlayCircle className="w-4 h-4 mr-2" /> Watch
+                                        </Button>
+                                      </ActivityLink>
+                                    )}
+                                    {lesson.driveLink && (
+                                      <ActivityLink
+                                        href={lesson.driveLink}
+                                        type="MATERIAL"
+                                        message={`Opened notes: ${lesson.title}`}
+                                      >
+                                        <Button size="sm" variant="outline" className="border-slate-300">
+                                          <FileText className="w-4 h-4 mr-2" /> Notes
+                                        </Button>
+                                      </ActivityLink>
+                                    )}
+                                    {!lesson.videoUrl && !lesson.driveLink && (
+                                      <span className="text-xs text-slate-400 font-medium px-3 py-1 bg-slate-100 rounded-full">
+                                        No Content
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ---- READING MATERIALS ---- */}
+            {tab === "reading" && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <BookMarked className="w-6 h-6 text-violet-600" />
+                  <h3 className="text-2xl font-bold text-slate-800">Reading Materials</h3>
+                </div>
+
+                {course.readingMaterials.length === 0 ? (
+                  <div className="text-center py-16 text-slate-500 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    No reading materials available yet.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {course.readingMaterials.map((rm) => (
+                      <div key={rm.id} className="flex items-center justify-between p-5 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-violet-300 hover:shadow-md transition-all group">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center shrink-0 border border-violet-100 group-hover:bg-violet-100 transition-colors">
+                            <FileText className="w-6 h-6 text-violet-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-lg text-slate-800 truncate">{rm.title}</p>
+                            <p className="text-sm text-slate-400 truncate mt-0.5">{rm.link}</p>
+                          </div>
+                        </div>
+                        <ActivityLink
+                          href={rm.link}
+                          type="MATERIAL"
+                          message={`Opened reading material: ${rm.title}`}
+                          className="ml-4 shrink-0"
+                        >
+                          <Button className="bg-violet-600 hover:bg-violet-700 text-white shadow-sm">
+                            Open Material <ExternalLink className="w-4 h-4 ml-2" />
+                          </Button>
+                        </ActivityLink>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ---- ASSIGNMENTS ---- */}
+            {tab === "assignments" && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <ClipboardList className="w-6 h-6 text-amber-600" />
+                  <h3 className="text-2xl font-bold text-slate-800">Assignments</h3>
+                </div>
+
+                {course.assignments.length === 0 ? (
+                  <div className="text-center py-16 text-slate-500 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    No assignments currently due.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {course.assignments.map((asgn) => {
+                      const existingSub = submissionMap.get(asgn.id) ?? null;
+                      return (
+                        <Card key={asgn.id} className="border-slate-200 shadow-sm hover:border-amber-300 transition-all bg-white overflow-hidden">
+                          <div className="h-1 w-full bg-amber-400"></div>
+                          <CardContent className="p-6">
+                            <div className="flex items-start justify-between gap-6">
+                              <div className="flex items-start gap-4 min-w-0">
+                                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100 mt-1">
+                                  <CheckCircle className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-bold text-xl text-slate-800">{asgn.title}</h4>
+                                  {asgn.description && (
+                                    <p className="text-slate-600 mt-1 leading-relaxed text-sm whitespace-pre-wrap">{asgn.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                              {asgn.driveLink && (
+                                <Link href={asgn.driveLink} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                  <Button className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm">
+                                    View Assignment <ExternalLink className="w-4 h-4 ml-2" />
+                                  </Button>
+                                </Link>
+                              )}
+                            </div>
+
+                            {/* Submission form / status */}
+                            <AssignmentSubmitForm
+                              assignmentId={asgn.id}
+                              assignmentTitle={asgn.title}
+                              existingSubmission={existingSub ? {
+                                id: existingSub.id,
+                                driveLink: existingSub.driveLink,
+                                grade: existingSub.grade,
+                                maxGrade: existingSub.maxGrade,
+                                feedback: existingSub.feedback,
+                                submittedAt: existingSub.submittedAt.toISOString(),
+                                gradedAt: existingSub.gradedAt?.toISOString() ?? null,
+                              } : null}
+                            />
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ---- QUIZZES ---- */}
+            {tab === "quizzes" && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <HelpCircle className="w-6 h-6 text-emerald-600" />
+                  <h3 className="text-2xl font-bold text-slate-800">Quizzes & Tests</h3>
+                </div>
+
+                {course.quizzes.length === 0 ? (
+                  <div className="text-center py-16 text-slate-500 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    No quizzes available.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {course.quizzes.map((quiz) => (
+                      <Card key={quiz.id} className="border-slate-200 shadow-sm hover:border-emerald-300 transition-all bg-white overflow-hidden flex flex-col">
+                        <div className="h-1 w-full bg-emerald-400"></div>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg font-bold">{quiz.title}</CardTitle>
+                          <CardDescription className="flex items-center gap-1.5 mt-1 font-medium text-emerald-600">
+                            <CheckCircle className="w-3.5 h-3.5"/> {quiz.questions.length} Questions
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-2 flex-grow flex items-end">
+                          <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-4" disabled>
+                            Take Quiz (Coming Soon)
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ---- LIVE CLASSES ---- */}
+            {tab === "live" && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Radio className="w-6 h-6 text-red-600" />
+                  <h3 className="text-2xl font-bold text-slate-800">Live Classes</h3>
+                </div>
+
+                {course.liveSessions.length === 0 ? (
+                  <div className="text-center py-16 text-slate-500 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    No live sessions scheduled yet.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {course.liveSessions.map((session) => {
+                      const joinLink = `/meet/${session.roomId}`;
+                      const isLive = session.status === "ONGOING";
+                      const isScheduled = session.status === "SCHEDULED";
+                      const isCompleted = session.status === "COMPLETED";
+                      const scheduledTime = new Date(session.scheduledAt).toLocaleString("en-IN", {
+                        weekday: "short",
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      });
+                      return (
+                        <Card
+                          key={session.id}
+                          className={`border bg-white overflow-hidden transition-all ${
+                            isLive
+                              ? "ring-2 ring-red-400 border-red-400 shadow-md shadow-red-100"
+                              : isScheduled
+                              ? "border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md"
+                              : "border-slate-200 shadow-sm opacity-75"
+                          }`}
+                        >
+                          {/* Status indicator bar */}
+                          <div className={`h-1 w-full ${
+                            isLive ? "bg-red-500" :
+                            isScheduled ? "bg-blue-500" :
+                            "bg-slate-300"
+                          }`} />
+                          <CardContent className="p-6">
+                            <div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
+                              {/* Left: icon + details */}
+                              <div className="flex items-center gap-4 min-w-0">
+                                <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${
+                                  isLive ? "bg-red-100 animate-pulse" :
+                                  isScheduled ? "bg-blue-50" :
+                                  "bg-slate-100"
+                                }`}>
+                                  <Video className={`w-6 h-6 ${
+                                    isLive ? "text-red-600" :
+                                    isScheduled ? "text-blue-600" :
+                                    "text-slate-400"
+                                  }`} />
+                                </div>
+                                <div className="min-w-0 space-y-1.5">
+                                  <h4 className="font-bold text-xl text-slate-900 truncate">{session.title}</h4>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {/* Status badge */}
+                                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
+                                      isLive ? "bg-red-100 text-red-700" :
+                                      isScheduled ? "bg-blue-100 text-blue-700" :
+                                      "bg-slate-100 text-slate-500"
+                                    }`}>
+                                      {isLive ? "● LIVE NOW" : session.status}
+                                    </span>
+                                    {/* Scheduled time */}
+                                    <span className="text-sm text-slate-500 flex items-center gap-1">
+                                      <span>📅</span>
+                                      <span>{scheduledTime}</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Right: action buttons */}
+                              <div className="flex items-center gap-3 shrink-0 mt-4 sm:mt-0 w-full sm:w-auto">
+                                {/* Recording button (completed sessions) */}
+                                {session.recordingUrl && (
+                                  <Link href={session.recordingUrl} target="_blank" className="w-full sm:w-auto">
+                                    <Button variant="outline" className="w-full sm:w-auto text-blue-700 border-blue-200 hover:bg-blue-50 bg-white">
+                                      <Link2 className="w-4 h-4 mr-2" /> Watch Recording
+                                    </Button>
+                                  </Link>
+                                )}
+
+                                {/* Join Class — shown for SCHEDULED and ONGOING */}
+                                {(isLive || isScheduled) && (
+                                  <Link href={joinLink} className="w-full sm:w-auto">
+                                    <Button
+                                      className={`w-full sm:w-auto font-bold shadow-md ${
+                                        isLive
+                                          ? "bg-red-600 hover:bg-red-700 text-white shadow-red-200"
+                                          : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200"
+                                      }`}
+                                    >
+                                      <Video className="w-4 h-4 mr-2" />
+                                      {isLive ? "Join Class (LIVE)" : "Join Class"}
+                                    </Button>
+                                  </Link>
+                                )}
+
+                                {/* Completed — no active join */}
+                                {isCompleted && !session.recordingUrl && (
+                                  <span className="text-sm text-slate-400 font-medium px-3 py-1 bg-slate-100 rounded-full">
+                                    Session Ended
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ---- REVIEWS ---- */}
+            {tab === "reviews" && (
+              <CourseReviewSection
+                courseId={course.id}
+                currentStudentId={studentId}
+              />
+            )}
+
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Floating AI Chatbot */}
+      <CourseChatbot courseId={course.id} courseTitle={course.title} />
     </div>
   );
 }

@@ -30,16 +30,25 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Login failed");
+      // Safely parse JSON — if the server returned HTML (404/500 page), show a friendly error
+      let data: Record<string, unknown> = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("Unable to connect to the server. Please try again.");
       }
 
-      // FIXED: Only use push, removed the conflicting router.refresh()
-      router.push(data.redirect);
-    } catch (err: any) {
-      setError(err.message);
+      if (!res.ok) {
+        throw new Error((data.error as string) || "Login failed. Please check your credentials.");
+      }
+
+      router.push(data.redirect as string);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(String(err));
+      }
       setLoading(false);
     }
   };
@@ -57,19 +66,19 @@ export default function LoginPage() {
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"/>
-                <Input id="email" name="email" type="email" placeholder="m@example.com" required className="pl-9 bg-white"/>
+                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input id="email" name="email" type="email" placeholder="m@example.com" required className="pl-9 bg-white" />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"/>
-                <Input id="password" name="password" type="password" required className="pl-9 bg-white"/>
+                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input id="password" name="password" type="password" required className="pl-9 bg-white" />
               </div>
             </div>
             <Button type="submit" className="w-full bg-slate-900 text-white hover:bg-slate-800" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
