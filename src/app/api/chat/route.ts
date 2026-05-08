@@ -334,13 +334,15 @@ ${courseContext}`
 
   // ---- Call OpenAI ----
   try {
+    const messages: any[] = [
+      { role: "system", content: systemPrompt },
+      ...conversationHistory,
+      finalUserMessage,
+    ];
+
     const completion = await openai.chat.completions.create({
       model: isImageFile ? "gpt-4o" : "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...conversationHistory,
-        finalUserMessage,
-      ],
+      messages,
       max_tokens: 600,
       temperature: 0.5,
     });
