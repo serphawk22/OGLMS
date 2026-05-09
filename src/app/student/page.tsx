@@ -13,12 +13,12 @@ import {
   BookOpen,
   PlayCircle,
   Building,
-  Clock,
   HelpCircle,
   Sparkles,
   Video,
   Bell,
   Radio,
+  ClipboardList,
 } from "lucide-react";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
@@ -60,7 +60,7 @@ export default async function StudentDashboard() {
   const enrolledCourseIds = enrollments.map((e) => e.courseId);
 
   // Step 2: Fetch everything else in parallel
-  const [allCourses, dailyBites, quizzes, liveSessions] = await Promise.all([
+  const [allCourses, dailyBites, liveSessions] = await Promise.all([
     // All published courses in the org
     prisma.course.findMany({
       where: { organizationId: org.id, published: true },
@@ -70,10 +70,6 @@ export default async function StudentDashboard() {
       where: { organizationId: org.id },
       orderBy: { date: 'desc' },
       take: 1
-    }),
-    prisma.quiz.findMany({
-      where: { course: { organizationId: org.id } },
-      take: 3
     }),
     // Only sessions for enrolled courses, ordered by soonest first
     enrolledCourseIds.length > 0
@@ -92,6 +88,42 @@ export default async function StudentDashboard() {
   // Build a Set of enrolled courseIds for O(1) lookup
   const enrolledSet = new Set(enrolledCourseIds);
   const latestBite = dailyBites[0];
+
+  // ── Pending Assessments: quizzes & assignments not yet submitted ──────────
+  let pendingQuizzes: { id: string; title: string; courseId: string; questionCount: number }[] = [];
+  let pendingAssignments: { id: string; title: string; courseId: string }[] = [];
+
+  if (enrolledCourseIds.length > 0) {
+    // Fetch all quizzes for enrolled courses
+    const allQuizzes = await prisma.quiz.findMany({
+      where: { courseId: { in: enrolledCourseIds } },
+      select: { id: true, title: true, courseId: true, questions: { select: { id: true } } },
+    });
+
+    // Fetch quiz submissions by this student
+    const quizSubs = await prisma.quizSubmission.findMany({
+      where: { studentId: user.id, quizId: { in: allQuizzes.map((q) => q.id) } },
+      select: { quizId: true },
+    });
+    const submittedQuizIds = new Set(quizSubs.map((s) => s.quizId));
+    pendingQuizzes = allQuizzes
+      .filter((q) => !submittedQuizIds.has(q.id))
+      .map((q) => ({ id: q.id, title: q.title, courseId: q.courseId, questionCount: q.questions.length }));
+
+    // Fetch all assignments for enrolled courses
+    const allAssignments = await prisma.assignment.findMany({
+      where: { courseId: { in: enrolledCourseIds } },
+      select: { id: true, title: true, courseId: true },
+    });
+
+    // Fetch assignment submissions by this student
+    const assignmentSubs = await prisma.assignmentSubmission.findMany({
+      where: { studentId: user.id, assignmentId: { in: allAssignments.map((a) => a.id) } },
+      select: { assignmentId: true },
+    });
+    const submittedAssignmentIds = new Set(assignmentSubs.map((s) => s.assignmentId));
+    pendingAssignments = allAssignments.filter((a) => !submittedAssignmentIds.has(a.id));
+  }
 
   // Build course list with enrollment state
   const courses = allCourses.map((c) => ({
@@ -272,25 +304,67 @@ export default async function StudentDashboard() {
           </Card>
 
           
+          {/* PENDING ASSESSMENTS */}
           <Card className="border-slate-200 shadow-sm bg-white">
             <CardHeader className="pb-3 border-b border-slate-50">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <HelpCircle className="w-4 h-4 text-blue-600"/> Pending Assessments
+                {(pendingQuizzes.length + pendingAssignments.length) > 0 && (
+                  <span className="ml-auto text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
+                    {pendingQuizzes.length + pendingAssignments.length}
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="divide-y divide-slate-100">
-               {quizzes.map(quiz => (
-                 <div key={quiz.id} className="p-4 hover:bg-slate-50 transition-colors">
-                    <p className="text-sm font-bold text-slate-800">{quiz.title}</p>
-                    <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-tighter">1 Mark Per Question • All MCQs</p>
-                    <Button size="sm" className="w-full mt-3 h-8 bg-slate-900 text-[11px]">Start Assessment</Button>
-                 </div>
-               ))}
-               {quizzes.length === 0 && (
-                 <div className="p-8 text-center text-xs text-slate-400">
-                    All caught up! No pending quizzes.
-                 </div>
-               )}
+            <CardContent className="divide-y divide-slate-100 p-0">
+              {/* Pending Quizzes */}
+              {pendingQuizzes.map((quiz) => (
+                <Link
+                  key={quiz.id}
+                  href={`/student/courses/${quiz.courseId}?tab=quizzes`}
+                  className="block p-4 hover:bg-slate-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                      <HelpCircle className="w-4 h-4 text-emerald-700" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate group-hover:text-emerald-700 transition-colors">{quiz.title}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-tighter">
+                        {quiz.questionCount} Question{quiz.questionCount !== 1 ? "s" : ""} · Quiz
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium shrink-0">Go →</span>
+                  </div>
+                </Link>
+              ))}
+
+              {/* Pending Assignments */}
+              {pendingAssignments.map((asgn) => (
+                <Link
+                  key={asgn.id}
+                  href={`/student/courses/${asgn.courseId}?tab=assignments`}
+                  className="block p-4 hover:bg-slate-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                      <ClipboardList className="w-4 h-4 text-amber-700" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate group-hover:text-amber-700 transition-colors">{asgn.title}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-tighter">Assignment</p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium shrink-0">Go →</span>
+                  </div>
+                </Link>
+              ))}
+
+              {/* All caught up */}
+              {pendingQuizzes.length === 0 && pendingAssignments.length === 0 && (
+                <div className="p-8 text-center text-xs text-slate-400">
+                  All caught up! No pending assessments.
+                </div>
+              )}
             </CardContent>
           </Card>
 

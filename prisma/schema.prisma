@@ -35,6 +35,7 @@ model User {
   chats           Chat[]
   submissions     AssignmentSubmission[]
   reviews         Review[]
+  quizSubmissions QuizSubmission[]
 }
 
 model OrganizationMember {
@@ -158,12 +159,30 @@ model ReadingMaterial {
 }
 
 model Quiz {
-  id        String     @id @default(cuid())
-  title     String
-  courseId  String
-  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  questions Question[]
-  createdAt DateTime   @default(now())
+  id            String          @id @default(cuid())
+  title         String
+  courseId      String
+  retryEnabled  Boolean         @default(false)
+  course        Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions     Question[]
+  submissions   QuizSubmission[]
+  createdAt     DateTime        @default(now())
+}
+
+model QuizSubmission {
+  id            String   @id @default(cuid())
+  quizId        String
+  studentId     String
+  answers       Json     // { questionId: selectedOptionIndex | "essay_text" }
+  obtainedMarks Int
+  totalMarks    Int
+  submittedAt   DateTime @default(now())
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  student       User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([quizId, studentId])
+  @@index([quizId])
+  @@index([studentId])
 }
 
 model Question {

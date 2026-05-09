@@ -11,6 +11,7 @@ import { CourseChatbot } from "@/components/CourseChatbot";
 import { AssignmentSubmitForm } from "@/components/AssignmentSubmitForm";
 import { CourseReviewSection } from "@/components/CourseReviewSection";
 import { ActivityLink } from "@/components/ActivityLink";
+import { QuizTaker } from "@/components/QuizTaker";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
@@ -67,7 +68,7 @@ export default async function StudentCourseView({
     redirect("/login");
   }
 
-  // Fetch this student's submissions
+  // Fetch this student's assignment submissions
   type SubmissionRow = {
     id: string; assignmentId: string; driveLink: string;
     grade: number | null; maxGrade: number; feedback: string | null;
@@ -87,6 +88,39 @@ export default async function StudentCourseView({
       },
     });
     for (const s of subs) submissionMap.set(s.assignmentId, s);
+  } catch {
+    // silently fall back to no-submission state
+  }
+
+  // Fetch this student's quiz submissions for this course's quizzes
+  type QuizSubmissionRow = {
+    quizId: string;
+    obtainedMarks: number;
+    totalMarks: number;
+    answers: Record<string, number | string>;
+    submittedAt: Date;
+  };
+  const quizSubmissionMap = new Map<string, QuizSubmissionRow>();
+  try {
+    const quizSubs = await prisma.quizSubmission.findMany({
+      where: {
+        studentId: studentId!,
+        quizId: { in: course.quizzes.map((q) => q.id) },
+      },
+      select: {
+        quizId: true,
+        obtainedMarks: true,
+        totalMarks: true,
+        answers: true,
+        submittedAt: true,
+      },
+    });
+    for (const s of quizSubs) {
+      quizSubmissionMap.set(s.quizId, {
+        ...s,
+        answers: s.answers as Record<string, number | string>,
+      });
+    }
   } catch {
     // silently fall back to no-submission state
   }
@@ -352,23 +386,57 @@ export default async function StudentCourseView({
                     No quizzes available.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {course.quizzes.map((quiz) => (
-                      <Card key={quiz.id} className="border-slate-200 shadow-sm hover:border-emerald-300 transition-all bg-white overflow-hidden flex flex-col">
-                        <div className="h-1 w-full bg-emerald-400"></div>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-lg font-bold">{quiz.title}</CardTitle>
-                          <CardDescription className="flex items-center gap-1.5 mt-1 font-medium text-emerald-600">
-                            <CheckCircle className="w-3.5 h-3.5"/> {quiz.questions.length} Questions
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-2 flex-grow flex items-end">
-                          <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-4" disabled>
-                            Take Quiz (Coming Soon)
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
+                  <div className="space-y-6">
+                    {course.quizzes.map((quiz) => {
+                      const existingSub = quizSubmissionMap.get(quiz.id) ?? null;
+                      return (
+                        <Card key={quiz.id} className="border-slate-200 shadow-sm hover:border-emerald-300 transition-all bg-white overflow-hidden">
+                          <div className="h-1 w-full bg-emerald-400"></div>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-lg font-bold flex items-center gap-2">
+                              <HelpCircle className="w-5 h-5 text-emerald-600" />
+                              {quiz.title}
+                            </CardTitle>
+                            <CardDescription className="flex items-center gap-1.5 mt-1 font-medium text-emerald-600">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              {quiz.questions.length} Question{quiz.questions.length !== 1 ? "s" : ""}
+                              {existingSub && (
+                                <span className="ml-2 text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                                  Submitted
+                                </span>
+                              )}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="pt-0 pb-5">
+                            <QuizTaker
+                              quiz={{
+                                id: quiz.id,
+                                title: quiz.title,
+                                retryEnabled: quiz.retryEnabled,
+                                questions: quiz.questions.map((q) => ({
+                                  id: q.id,
+                                  text: q.text,
+                                  options: q.options,
+                                  correctOption: q.correctOption,
+                                  points: q.points,
+                                  type: q.type,
+                                })),
+                              }}
+                              existingSubmission={
+                                existingSub
+                                  ? {
+                                      obtainedMarks: existingSub.obtainedMarks,
+                                      totalMarks: existingSub.totalMarks,
+                                      answers: existingSub.answers,
+                                      submittedAt: existingSub.submittedAt.toISOString(),
+                                    }
+                                  : null
+                              }
+                            />
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </div>
