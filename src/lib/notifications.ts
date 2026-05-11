@@ -19,10 +19,11 @@ function makeId(): string {
 }
 
 // ── one-time table bootstrap ────────────────────────────────────────────────
-let tablesReady = false;
+// Use a Promise (not a boolean) so that concurrent calls all await the SAME
+// initialisation and never fire the DDL a second time within the process.
+let initPromise: Promise<void> | null = null;
 
-export async function ensureTablesExist(): Promise<void> {
-  if (tablesReady) return;
+async function _runInit(): Promise<void> {
   try {
     // Notification table
     await prisma.$executeRaw`
@@ -55,16 +56,19 @@ export async function ensureTablesExist(): Promise<void> {
       CREATE INDEX IF NOT EXISTS "Event_courseId_idx" ON "Event"("courseId")
     `;
 
-    // Add notifications relation column back to User (safe no-op if already there)
-    // The FK is already handled by schema.prisma + db push; we just ensure the table.
-    tablesReady = true;
     console.log("[db-init] Notification + Event tables verified ✓");
   } catch (err) {
-    // Tables probably already exist — log and continue
+    // Tables probably already exist — log and continue.
+    // Reset so it can retry next cold-start (but not on every warm request).
     console.warn("[db-init] ensureTablesExist warning (usually harmless):", err);
-    tablesReady = true; // Don't retry every request
   }
 }
+
+export async function ensureTablesExist(): Promise<void> {
+  if (!initPromise) initPromise = _runInit();
+  return initPromise;
+}
+
 
 // ── public API ──────────────────────────────────────────────────────────────
 

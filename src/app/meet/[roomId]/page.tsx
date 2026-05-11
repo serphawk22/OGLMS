@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { jwtVerify } from "jose";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import LiveClassRoom from "@/components/LiveClassRoom";
 import { ArrowLeft, Video, BookOpen, PhoneOff } from "lucide-react";
+// LiveClassRoomClient is a "use client" wrapper that does dynamic(ssr:false)
+// internally — ssr:false is only legal inside Client Components.
+import LiveClassRoomClient from "@/components/LiveClassRoomClient";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
@@ -45,7 +47,15 @@ export default async function MeetPage({ params }: PageProps) {
   // ── Fetch session ─────────────────────────────────────────────────────────
   const session = await prisma.liveSession.findUnique({
     where: { roomId },
-    include: { course: { select: { id: true, title: true } } },
+    include: {
+      course: {
+        select: {
+          id: true,
+          title: true,
+          creator: { select: { name: true } },
+        },
+      },
+    },
   });
 
   if (!session) {
@@ -78,6 +88,7 @@ export default async function MeetPage({ params }: PageProps) {
     select: { name: true },
   });
   const displayName = user?.name || payload.email.split("@")[0];
+  const instructorName = session.course.creator?.name || "Instructor";
 
   return (
     <div className="flex flex-col h-screen bg-slate-950">
@@ -138,11 +149,14 @@ export default async function MeetPage({ params }: PageProps) {
 
       {/* ── ZEGOCLOUD room ──────────────────────────────────────────────── */}
       <div className="flex-1 overflow-hidden">
-        <LiveClassRoom
+        <LiveClassRoomClient
           roomId={roomId}
           userId={payload.userId}
           userName={displayName}
           isHost={isHost}
+          instructorName={instructorName}
+          courseId={session.course.id}
+          sessionTitle={session.title}
         />
       </div>
     </div>

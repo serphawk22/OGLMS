@@ -36,6 +36,7 @@ model User {
   submissions     AssignmentSubmission[]
   reviews         Review[]
   quizSubmissions QuizSubmission[]
+  recordedClasses RecordedClass[]
 }
 
 model OrganizationMember {
@@ -52,14 +53,14 @@ model OrganizationMember {
 }
 
 model Course {
-  id               String       @id @default(cuid())
+  id               String            @id @default(cuid())
   title            String
   description      String?
-  published        Boolean      @default(false)
+  published        Boolean           @default(false)
   organizationId   String
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   creatorId        String
-  creator          User         @relation("CourseCreator", fields: [creatorId], references: [id])
+  creator          User              @relation("CourseCreator", fields: [creatorId], references: [id])
   modules          Module[]
   assignments      Assignment[]
   readingMaterials ReadingMaterial[]
@@ -69,6 +70,7 @@ model Course {
   liveSessions     LiveSession[]
   chats            Chat[]
   reviews          Review[]
+  recordedClasses  RecordedClass[]
 
   @@index([organizationId])
   @@index([creatorId])
@@ -282,4 +284,21 @@ model Review {
   @@unique([courseId, studentId])
   @@index([courseId])
   @@index([studentId])
+}
+
+// ── Recorded Classes (auto-uploaded from live sessions via Cloudinary) ─────────
+
+model RecordedClass {
+  id           String   @id @default(cuid())
+  courseId     String
+  instructorId String
+  title        String
+  videoUrl     String
+  duration     Int?     // in seconds
+  createdAt    DateTime @default(now())
+  course       Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructor   User     @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([instructorId])
 }

@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, BookOpen, FileText, CheckCircle, LayoutList, Video, Trash2, HelpCircle, ExternalLink, GripVertical, Radio, Link2 } from "lucide-react";
+import { ArrowLeft, BookOpen, FileText, CheckCircle, LayoutList, Video, Trash2, HelpCircle, ExternalLink, GripVertical, Radio, Link2, MonitorPlay } from "lucide-react";
 import { notifyEnrolledStudents, createEvent } from "@/lib/notifications";
 import { randomBytes } from "crypto";
 import { StartClassButton } from "@/components/StartClassButton";
 import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { sendLiveClassEmail } from "@/lib/mail";
+import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 
 // --- SERVER ACTIONS ---
 
@@ -372,6 +373,7 @@ export default async function CourseBuilderPage({
             <Link href={`?tab=assignments`}><Button variant={tab === "assignments" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "assignments" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><CheckCircle className="w-4 h-4 mr-2" /> Assignments</Button></Link>
             <Link href={`?tab=quizzes`}><Button variant={tab === "quizzes" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "quizzes" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><HelpCircle className="w-4 h-4 mr-2" /> Quizzes & Tests</Button></Link>
             <Link href={`?tab=live`}><Button variant={tab === "live" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "live" ? "bg-red-100 text-red-700 font-semibold" : "text-slate-600"}`}><Radio className="w-4 h-4 mr-2" /> Live Classes</Button></Link>
+            <Link href={`?tab=recorded`}><Button variant={tab === "recorded" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "recorded" ? "bg-indigo-100 text-indigo-700 font-semibold" : "text-slate-600"}`}><MonitorPlay className="w-4 h-4 mr-2" /> Recorded Classes</Button></Link>
           </div>
 
           <div className="md:col-span-3">
@@ -714,6 +716,11 @@ export default async function CourseBuilderPage({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* RECORDED CLASSES TAB */}
+            {tab === "recorded" && (
+              <RecordedClassesTab courseId={courseId} isInstructor={true} />
             )}
 
           </div>

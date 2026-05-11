@@ -1,18 +1,36 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+// ── Singleton pool — shared across all hot-reloads in dev ─────────────────────
+const globalForPool = globalThis as unknown as { pgPool: Pool; prisma: PrismaClient };
 
-function createPrismaClient() {
-  const adapter = new PrismaPg({
+function createPool(): Pool {
+  return new Pool({
     connectionString: process.env.DATABASE_URL as string,
+    // Keep the pool small so we never exhaust the DB's connection limit.
+    // Neon/Supabase free tiers typically allow ~10–20 simultaneous connections.
+    max: 8,
+    // Kill idle connections after 30 s to avoid stale-connection errors.
+    idleTimeoutMillis: 30_000,
+    // If no connection is available within 10 s, throw rather than hanging forever.
+    connectionTimeoutMillis: 10_000,
+    // Keep-alive pings so the DB proxy doesn't silently drop idle connections.
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
   });
+}
+
+function createPrismaClient(pool: Pool): PrismaClient {
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
-// Proper singleton: reuse in dev across hot-reloads without resetting
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+// Reuse across Next.js dev hot-reloads
+const pool   = globalForPool.pgPool   ?? createPool();
+export const prisma = globalForPool.prisma ?? createPrismaClient(pool);
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  globalForPool.pgPool  = pool;
+  globalForPool.prisma  = prisma;
 }

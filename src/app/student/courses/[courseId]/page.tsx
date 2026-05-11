@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, PlayCircle, FileText, CheckCircle, ExternalLink,
-  BookOpen, ClipboardList, BookMarked, LayoutList, HelpCircle, Radio, Video, Link2, Star
+  BookOpen, ClipboardList, BookMarked, LayoutList, HelpCircle, Radio, Video, Link2, Star, MonitorPlay
 } from "lucide-react";
 import { CourseChatbot } from "@/components/CourseChatbot";
 import { AssignmentSubmitForm } from "@/components/AssignmentSubmitForm";
 import { CourseReviewSection } from "@/components/CourseReviewSection";
 import { ActivityLink } from "@/components/ActivityLink";
 import { QuizTaker } from "@/components/QuizTaker";
+import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
@@ -74,23 +75,6 @@ export default async function StudentCourseView({
     grade: number | null; maxGrade: number; feedback: string | null;
     submittedAt: Date; gradedAt: Date | null;
   };
-  const submissionMap = new Map<string, SubmissionRow>();
-  try {
-    const subs = await prisma.assignmentSubmission.findMany({
-      where: {
-        studentId: studentId!,
-        assignmentId: { in: course.assignments.map((a) => a.id) },
-      },
-      select: {
-        id: true, assignmentId: true, driveLink: true,
-        grade: true, maxGrade: true, feedback: true,
-        submittedAt: true, gradedAt: true,
-      },
-    });
-    for (const s of subs) submissionMap.set(s.assignmentId, s);
-  } catch {
-    // silently fall back to no-submission state
-  }
 
   // Fetch this student's quiz submissions for this course's quizzes
   type QuizSubmissionRow = {
@@ -100,9 +84,22 @@ export default async function StudentCourseView({
     answers: Record<string, number | string>;
     submittedAt: Date;
   };
-  const quizSubmissionMap = new Map<string, QuizSubmissionRow>();
-  try {
-    const quizSubs = await prisma.quizSubmission.findMany({
+
+  // Run both submission queries in parallel — they are fully independent of each other.
+  const [rawSubs, rawQuizSubs] = await Promise.all([
+    prisma.assignmentSubmission.findMany({
+      where: {
+        studentId: studentId!,
+        assignmentId: { in: course.assignments.map((a) => a.id) },
+      },
+      select: {
+        id: true, assignmentId: true, driveLink: true,
+        grade: true, maxGrade: true, feedback: true,
+        submittedAt: true, gradedAt: true,
+      },
+    }).catch(() => [] as SubmissionRow[]),
+
+    prisma.quizSubmission.findMany({
       where: {
         studentId: studentId!,
         quizId: { in: course.quizzes.map((q) => q.id) },
@@ -114,15 +111,18 @@ export default async function StudentCourseView({
         answers: true,
         submittedAt: true,
       },
+    }).catch(() => []),
+  ]);
+
+  const submissionMap = new Map<string, SubmissionRow>();
+  for (const s of rawSubs) submissionMap.set(s.assignmentId, s);
+
+  const quizSubmissionMap = new Map<string, QuizSubmissionRow>();
+  for (const s of rawQuizSubs) {
+    quizSubmissionMap.set(s.quizId, {
+      ...s,
+      answers: s.answers as Record<string, number | string>,
     });
-    for (const s of quizSubs) {
-      quizSubmissionMap.set(s.quizId, {
-        ...s,
-        answers: s.answers as Record<string, number | string>,
-      });
-    }
-  } catch {
-    // silently fall back to no-submission state
   }
 
   return (
@@ -181,6 +181,11 @@ export default async function StudentCourseView({
             <Link href={`?tab=reviews`}>
               <Button variant={tab === "reviews" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "reviews" ? "bg-amber-100 text-amber-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
                 <Star className="w-4 h-4 mr-3" /> Reviews
+              </Button>
+            </Link>
+            <Link href={`?tab=recorded`}>
+              <Button variant={tab === "recorded" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "recorded" ? "bg-indigo-100 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
+                <MonitorPlay className="w-4 h-4 mr-3" /> Recorded Classes
               </Button>
             </Link>
           </div>
@@ -572,6 +577,11 @@ export default async function StudentCourseView({
                 courseId={course.id}
                 currentStudentId={studentId}
               />
+            )}
+
+            {/* ---- RECORDED CLASSES ---- */}
+            {tab === "recorded" && (
+              <RecordedClassesTab courseId={courseId} isInstructor={false} />
             )}
 
           </div>
