@@ -7,15 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, BookOpen, FileText, CheckCircle, LayoutList, Video, Trash2, HelpCircle, ExternalLink, GripVertical, Radio, Link2, MonitorPlay } from "lucide-react";
+import { ArrowLeft, BookOpen, FileText, CheckCircle, LayoutList, Video, Trash2, HelpCircle, ExternalLink, GripVertical, Radio, Link2, MonitorPlay, Users } from "lucide-react";
 import { notifyEnrolledStudents, createEvent } from "@/lib/notifications";
 import { randomBytes } from "crypto";
 import { StartClassButton } from "@/components/StartClassButton";
 import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { sendLiveClassEmail } from "@/lib/mail";
 import { RecordedClassesTab } from "@/components/RecordedClassesTab";
+import { MaterialAnalyticsButton } from "@/components/MaterialAnalyticsButton";
 
 import { StaggeredMenu } from "@/components/StaggeredMenu";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 
 // --- SERVER ACTIONS ---
 
@@ -191,6 +193,7 @@ async function createLiveSession(formData: FormData) {
   const title = formData.get("title") as string;
   const courseId = formData.get("courseId") as string;
   const scheduledAtRaw = formData.get("scheduledAt") as string;
+  const moduleId = formData.get("moduleId") as string | null;
 
   if (title && courseId) {
     const roomId = randomBytes(8).toString("hex");
@@ -198,7 +201,14 @@ async function createLiveSession(formData: FormData) {
     const scheduledAt = scheduledAtRaw ? new Date(scheduledAtRaw) : new Date();
 
     const session = await prisma.liveSession.create({
-      data: { roomId, title, courseId, status: "SCHEDULED", scheduledAt },
+      data: {
+        roomId,
+        title,
+        courseId,
+        status: "SCHEDULED",
+        scheduledAt,
+        ...(moduleId ? { moduleId } : {}),
+      },
       include: {
         course: {
           include: {
@@ -303,7 +313,14 @@ export default async function CourseBuilderPage({
   const course = await prisma.course.findUnique({
     where: { id: courseId },
     include: {
-      modules: { orderBy: { id: 'asc' }, include: { lessons: { orderBy: { id: 'asc' } } } },
+      modules: {
+        orderBy: { id: 'asc' },
+        include: {
+          lessons: { orderBy: { id: 'asc' } },
+          liveSessions: { orderBy: { createdAt: 'desc' } },
+          recordedClasses: { orderBy: { createdAt: 'desc' } },
+        },
+      },
       assignments: { orderBy: { createdAt: 'desc' } },
       readingMaterials: { orderBy: { createdAt: 'desc' } },
       quizzes: { include: { questions: true } },
@@ -335,13 +352,49 @@ export default async function CourseBuilderPage({
     // silently degrade — submissions show as empty
   }
 
+  // Fetch enrolled students for Students Info tab
+  const enrollments = await prisma.enrollment.findMany({
+    where: { courseId },
+    include: { user: { select: { id: true, name: true, email: true } } },
+    orderBy: { id: "asc" },
+  });
+
+  // Fetch per-student activity stats for enriched Students Info
+  const studentIds = enrollments.map((e) => e.userId);
+  const [assignmentSubs, quizSubs] = await Promise.all([
+    prisma.assignmentSubmission.findMany({
+      where: { assignment: { courseId }, studentId: { in: studentIds } },
+      select: { studentId: true },
+    }),
+    prisma.quizSubmission.findMany({
+      where: { quiz: { courseId }, studentId: { in: studentIds } },
+      select: { studentId: true },
+    }),
+  ]);
+  // Material views — count distinct materials viewed per student
+  let materialViews: { studentId: string; materialId: string }[] = [];
+  try {
+    materialViews = await prisma.materialView.findMany({
+      where: { material: { courseId }, studentId: { in: studentIds } },
+      select: { studentId: true, materialId: true },
+    });
+  } catch (err) {
+    console.error("[StudentsInfo] materialView query failed:", err);
+    /* degrade gracefully — materials column will show 0 */
+  }
+
+  const totalAssignments = course.assignments.length;
+  const totalQuizzes = course.quizzes.length;
+  const totalMaterials = course.readingMaterials.length;
+  const totalActivities = totalAssignments + totalQuizzes + totalMaterials;
+
   const menuItems = [
     { label: 'Back to Workspace', ariaLabel: 'Go back to workspace', link: '/instructor' },
     { label: 'Curriculum Builder', ariaLabel: 'View modules', link: `?tab=modules` },
     { label: 'Reading Materials', ariaLabel: 'View materials', link: `?tab=reading` },
     { label: 'Assignments', ariaLabel: 'View assignments', link: `?tab=assignments` },
     { label: 'Quizzes & Tests', ariaLabel: 'View quizzes', link: `?tab=quizzes` },
-    { label: 'Live Classes', ariaLabel: 'View live classes', link: `?tab=live` },
+    { label: 'Students Info', ariaLabel: 'View enrolled students', link: `?tab=students` },
   ];
 
   const socialItems = [
@@ -403,8 +456,7 @@ export default async function CourseBuilderPage({
             <Link href={`?tab=reading`}><Button variant={tab === "reading" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "reading" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><FileText className="w-4 h-4 mr-2" /> Reading Materials</Button></Link>
             <Link href={`?tab=assignments`}><Button variant={tab === "assignments" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "assignments" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><CheckCircle className="w-4 h-4 mr-2" /> Assignments</Button></Link>
             <Link href={`?tab=quizzes`}><Button variant={tab === "quizzes" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "quizzes" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><HelpCircle className="w-4 h-4 mr-2" /> Quizzes & Tests</Button></Link>
-            <Link href={`?tab=live`}><Button variant={tab === "live" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "live" ? "bg-red-100 text-red-700 font-semibold" : "text-slate-600"}`}><Radio className="w-4 h-4 mr-2" /> Live Classes</Button></Link>
-            <Link href={`?tab=recorded`}><Button variant={tab === "recorded" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "recorded" ? "bg-indigo-100 text-indigo-700 font-semibold" : "text-slate-600"}`}><MonitorPlay className="w-4 h-4 mr-2" /> Recorded Classes</Button></Link>
+            <Link href={`?tab=students`}><Button variant={tab === "students" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "students" ? "bg-emerald-100 text-emerald-700 font-semibold" : "text-slate-600"}`}><Users className="w-4 h-4 mr-2" /> Students Info</Button></Link>
           </div>
 
           <div className="md:col-span-3">
@@ -419,18 +471,126 @@ export default async function CourseBuilderPage({
                       <GripVertical className="text-slate-400 w-5 h-5"/>
                       <CardTitle className="text-base font-semibold">Module {idx + 1}: {module.title}</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 bg-white">
-                      {module.lessons.map((lesson, lIdx) => (
-                        <div key={lesson.id} className="flex items-center justify-between p-3 border rounded-md mb-2 group">
-                          <div className="flex items-center gap-3"><Video className="w-4 h-4 text-blue-600"/><span className="text-sm">{lIdx + 1}. {lesson.title}</span></div>
-                          <Link href={`/instructor/courses/${courseId}/lessons/${lesson.id}`}><Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">Edit</Button></Link>
+                    <CardContent className="p-4 bg-white space-y-5">
+
+                      {/* ── Lessons ───────────────────────────────────────── */}
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                          <Video className="w-3.5 h-3.5" /> Lessons
+                        </p>
+                        {module.lessons.length === 0 && (
+                          <p className="text-xs text-slate-400 pl-1">No lessons yet.</p>
+                        )}
+                        {module.lessons.map((lesson, lIdx) => (
+                          <div key={lesson.id} className="flex items-center justify-between p-3 border rounded-md mb-2 group">
+                            <div className="flex items-center gap-3"><Video className="w-4 h-4 text-blue-600"/><span className="text-sm">{lIdx + 1}. {lesson.title}</span></div>
+                            <Link href={`/instructor/courses/${courseId}/lessons/${lesson.id}`}><Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">Edit</Button></Link>
+                          </div>
+                        ))}
+                        <form action={createLesson} className="flex gap-2 mt-2">
+                          <input type="hidden" name="moduleId" value={module.id} /><input type="hidden" name="courseId" value={courseId} />
+                          <Input name="title" required placeholder="Lesson title..." className="h-9 text-sm"/>
+                          <Button type="submit" variant="outline" size="sm" className="h-9">Add Lesson</Button>
+                        </form>
+                      </div>
+
+                      {/* ── Live Classes ──────────────────────────────────── */}
+                      <div className="border-t border-slate-100 pt-4">
+                        <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-2 flex items-center gap-1.5">
+                          <Radio className="w-3.5 h-3.5" /> Live Classes
+                        </p>
+                        {module.liveSessions.length === 0 && (
+                          <p className="text-xs text-slate-400 pl-1">No live classes scheduled for this module.</p>
+                        )}
+                        {module.liveSessions.map((session) => (
+                          <div key={session.id} className={`flex items-center justify-between p-3 border rounded-md mb-2 ${
+                            session.status === "ONGOING" ? "border-red-300 bg-red-50" : "border-slate-200"
+                          }`}>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                                session.status === "ONGOING" ? "bg-red-100 text-red-700" :
+                                session.status === "COMPLETED" ? "bg-slate-100 text-slate-500" :
+                                "bg-blue-100 text-blue-700"
+                              }`}>
+                                {session.status === "ONGOING" ? "● LIVE" : session.status}
+                              </span>
+                              <span className="text-sm font-medium truncate">{session.title}</span>
+                              <span className="text-xs text-slate-400 shrink-0">
+                                {new Date(session.scheduledAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {session.status === "SCHEDULED" && (
+                                <StartClassButton sessionId={session.id} roomId={session.roomId} />
+                              )}
+                              {session.status === "ONGOING" && (
+                                <Link href={`/meet/${session.roomId}`}>
+                                  <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs px-3">Rejoin</Button>
+                                </Link>
+                              )}
+                              {session.recordingUrl && (
+                                <VideoPlayerModal
+                                  videoUrl={session.recordingUrl}
+                                  title={`Recording: ${session.title}`}
+                                >
+                                  <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 text-xs">
+                                    <MonitorPlay className="w-3 h-3 mr-1" /> Rec
+                                  </Button>
+                                </VideoPlayerModal>
+                              )}
+                              <form action={deleteLiveSession}>
+                                <input type="hidden" name="id" value={session.id} />
+                                <input type="hidden" name="courseId" value={courseId} />
+                                <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:text-red-600 h-7 w-7 p-0">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </form>
+                            </div>
+                          </div>
+                        ))}
+                        {/* Inline Create Live Class form for this module */}
+                        <form action={createLiveSession} className="flex flex-wrap gap-2 mt-2">
+                          <input type="hidden" name="courseId" value={courseId} />
+                          <input type="hidden" name="moduleId" value={module.id} />
+                          <Input name="title" required placeholder="Live class title..." className="h-9 text-sm flex-1 min-w-40"/>
+                          <Input name="scheduledAt" type="datetime-local" className="h-9 text-sm bg-white w-52"/>
+                          <Button type="submit" size="sm" className="h-9 bg-red-600 hover:bg-red-700 text-white">
+                            <Radio className="w-3.5 h-3.5 mr-1.5" /> Schedule
+                          </Button>
+                        </form>
+                      </div>
+
+                      {/* ── Recorded Videos ────────────────────────────────── */}
+                      {module.recordedClasses.length > 0 && (
+                        <div className="border-t border-slate-100 pt-4">
+                          <p className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2 flex items-center gap-1.5">
+                            <MonitorPlay className="w-3.5 h-3.5" /> Recorded Videos
+                          </p>
+                          {module.recordedClasses.map((rec) => (
+                            <div key={rec.id} className="flex items-center justify-between p-3 border border-indigo-100 rounded-md mb-2 bg-indigo-50/40">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <MonitorPlay className="w-4 h-4 text-indigo-500 shrink-0" />
+                                <span className="text-sm font-medium truncate">{rec.title}</span>
+                                {rec.duration && (
+                                  <span className="text-xs text-slate-400 shrink-0">
+                                    {Math.floor(rec.duration / 60)}:{String(rec.duration % 60).padStart(2, "0")}
+                                  </span>
+                                )}
+                              </div>
+                              <VideoPlayerModal
+                                videoUrl={rec.videoUrl}
+                                title={rec.title}
+                                duration={rec.duration}
+                              >
+                                <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200 text-xs">
+                                  <MonitorPlay className="w-3 h-3 mr-1" /> Watch
+                                </Button>
+                              </VideoPlayerModal>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                      <form action={createLesson} className="flex gap-2 mt-4">
-                        <input type="hidden" name="moduleId" value={module.id} /><input type="hidden" name="courseId" value={courseId} />
-                        <Input name="title" required placeholder="Lesson title..." className="h-9 text-sm"/>
-                        <Button type="submit" variant="outline" size="sm" className="h-9">Add Lesson</Button>
-                      </form>
+                      )}
+
                     </CardContent>
                   </Card>
                 ))}
@@ -462,7 +622,8 @@ export default async function CourseBuilderPage({
                 {course.readingMaterials.map((rm) => (
                   <Card key={rm.id} className="p-4 flex justify-between items-center bg-white border-slate-200">
                     <div className="flex items-center gap-3"><FileText className="w-5 h-5 text-slate-400"/><span className="font-bold">{rm.title}</span></div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1 items-center">
+                      <MaterialAnalyticsButton materialId={rm.id} materialTitle={rm.title} courseId={courseId} />
                       <Link href={rm.link} target="_blank"><Button variant="ghost" size="sm"><ExternalLink className="w-4 h-4"/></Button></Link>
                       <form action={deleteResource}><input type="hidden" name="id" value={rm.id} /><input type="hidden" name="type" value="reading" /><input type="hidden" name="courseId" value={courseId} /><Button type="submit" variant="ghost" size="sm" className="text-red-500"><Trash2 className="w-4 h-4"/></Button></form>
                     </div>
@@ -637,121 +798,100 @@ export default async function CourseBuilderPage({
               </div>
             )}
 
-            {/* LIVE CLASSES TAB */}
-            {tab === "live" && (
+            {/* STUDENTS INFO TAB */}
+            {tab === "students" && (
               <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-bold flex items-center gap-2">
-                    <Radio className="w-5 h-5 text-red-500" /> Live Classes
-                  </h2>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-6 h-6 text-emerald-600" />
+                    <h2 className="text-xl font-bold">Students Info</h2>
+                  </div>
+                  <span className="text-sm font-semibold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">
+                    {enrollments.length} enrolled
+                  </span>
                 </div>
 
-                {/* Create session form */}
-                <Card className="border-slate-200 shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Schedule a New Live Class</CardTitle>
-                    <p className="text-sm text-slate-500 mt-1">Students will receive an email + in-app notification automatically.</p>
-                  </CardHeader>
-                  <CardContent>
-                    <form action={createLiveSession} className="space-y-4">
-                      <input type="hidden" name="courseId" value={courseId} />
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Session Title</Label>
-                          <Input name="title" required placeholder="e.g. Week 3 – React Hooks Deep Dive" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>
-                            Scheduled Date &amp; Time
-                            <span className="ml-1 text-slate-400 font-normal text-xs">(optional)</span>
-                          </Label>
-                          <Input name="scheduledAt" type="datetime-local" className="bg-white" />
-                        </div>
-                      </div>
-                      <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white">
-                        <Radio className="w-4 h-4 mr-2" /> Create &amp; Notify Students
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-
-                {/* Sessions list */}
-                {course.liveSessions.length === 0 ? (
-                  <p className="text-center py-12 text-slate-400">No live sessions created yet.</p>
+                {enrollments.length === 0 ? (
+                  <div className="text-center py-16 bg-white rounded-xl border border-slate-200 shadow-sm text-slate-400">
+                    <Users className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                    <p className="text-lg font-semibold text-slate-500">No students enrolled yet.</p>
+                    <p className="text-sm mt-1">Students will appear here once they enrol in this course.</p>
+                  </div>
                 ) : (
-                  <div className="space-y-3">
-                    {course.liveSessions.map((session) => (
-                      <Card key={session.id} className={`border shadow-sm bg-white ${
-                        session.status === "ONGOING" ? "border-red-300 ring-1 ring-red-200" : "border-slate-200"
-                      }`}>
-                        <CardContent className="p-5 flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                              session.status === "ONGOING" ? "bg-red-100 animate-pulse" :
-                              session.status === "COMPLETED" ? "bg-slate-100" : "bg-blue-50"
-                            }`}>
-                              <Video className={`w-5 h-5 ${
-                                session.status === "ONGOING" ? "text-red-600" :
-                                session.status === "COMPLETED" ? "text-slate-400" : "text-blue-600"
-                              }`} />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-slate-900 truncate">{session.title}</p>
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                                  session.status === "ONGOING" ? "bg-red-100 text-red-700" :
-                                  session.status === "COMPLETED" ? "bg-slate-100 text-slate-500" :
-                                  "bg-blue-100 text-blue-700"
-                                }`}>
-                                  {session.status === "ONGOING" ? "● LIVE" : session.status}
-                                </span>
-                                <span className="text-xs text-slate-500">
-                                  🕐 {new Date(session.scheduledAt).toLocaleString("en-IN", {
-                                    dateStyle: "medium",
-                                    timeStyle: "short",
-                                  })}
-                                </span>
-                                <span className="text-xs text-slate-400 font-mono">ID: {session.roomId.slice(0, 8)}…</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {session.recordingUrl && (
-                              <Link href={session.recordingUrl} target="_blank">
-                                <Button variant="outline" size="sm" className="text-blue-600 border-blue-200">
-                                  <Link2 className="w-3 h-3 mr-1" /> Recording
-                                </Button>
-                              </Link>
-                            )}
-                            {session.status === "SCHEDULED" && (
-                              <StartClassButton sessionId={session.id} roomId={session.roomId} />
-                            )}
-                            {session.status === "ONGOING" && (
-                              <Link href={`/meet/${session.roomId}`}>
-                                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4">
-                                  <Video className="w-3 h-3 mr-1.5" /> Rejoin Room
-                                </Button>
-                              </Link>
-                            )}
-                            <form action={deleteLiveSession}>
-                              <input type="hidden" name="id" value={session.id} />
-                              <input type="hidden" name="courseId" value={courseId} />
-                              <Button type="submit" variant="ghost" size="sm" className="text-red-400 hover:text-red-600">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </form>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="text-left px-5 py-3 font-semibold text-slate-600">#</th>
+                          <th className="text-left px-5 py-3 font-semibold text-slate-600">Student</th>
+                          <th className="text-left px-5 py-3 font-semibold text-slate-600">Email</th>
+                          <th className="text-center px-5 py-3 font-semibold text-slate-600">Assignments</th>
+                          <th className="text-center px-5 py-3 font-semibold text-slate-600">Quizzes</th>
+                          <th className="text-center px-5 py-3 font-semibold text-slate-600">Materials</th>
+                          <th className="text-left px-5 py-3 font-semibold text-slate-600">Progress</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {enrollments.map((enr, idx) => {
+                          const asgDone = assignmentSubs.filter(s => s.studentId === enr.userId).length;
+                          const qzDone  = quizSubs.filter(s => s.studentId === enr.userId).length;
+                          // Count distinct materials viewed (unique materialId per student)
+                          const matDone = new Set(
+                            materialViews
+                              .filter(s => s.studentId === enr.userId)
+                              .map(s => s.materialId)
+                          ).size;
+                          const done    = asgDone + qzDone + matDone;
+                          const pct     = totalActivities > 0 ? Math.round((done / totalActivities) * 100) : 0;
+                          return (
+                            <tr key={enr.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-5 py-3 text-slate-400 font-mono text-xs">{idx + 1}</td>
+                              <td className="px-5 py-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                                    <span className="text-xs font-bold text-emerald-700">
+                                      {(enr.user.name ?? enr.user.email)[0].toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <span className="font-medium text-slate-800">{enr.user.name ?? "—"}</span>
+                                </div>
+                              </td>
+                              <td className="px-5 py-3 text-slate-500 text-xs">{enr.user.email}</td>
+                              <td className="px-5 py-3 text-center">
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                  asgDone === totalAssignments && totalAssignments > 0
+                                    ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+                                }`}>{asgDone}/{totalAssignments}</span>
+                              </td>
+                              <td className="px-5 py-3 text-center">
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                  qzDone === totalQuizzes && totalQuizzes > 0
+                                    ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+                                }`}>{qzDone}/{totalQuizzes}</span>
+                              </td>
+                              <td className="px-5 py-3 text-center">
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                  matDone === totalMaterials && totalMaterials > 0
+                                    ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"
+                                }`}>{matDone}/{totalMaterials}</span>
+                              </td>
+                              <td className="px-5 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-2 bg-emerald-500 rounded-full transition-all"
+                                      style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-xs text-slate-600 font-bold w-8">{pct}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
-            )}
-
-            {/* RECORDED CLASSES TAB */}
-            {tab === "recorded" && (
-              <RecordedClassesTab courseId={courseId} isInstructor={true} />
             )}
 
           </div>

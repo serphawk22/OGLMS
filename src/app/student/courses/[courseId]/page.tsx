@@ -13,6 +13,7 @@ import { CourseReviewSection } from "@/components/CourseReviewSection";
 import { ActivityLink } from "@/components/ActivityLink";
 import { QuizTaker } from "@/components/QuizTaker";
 import { RecordedClassesTab } from "@/components/RecordedClassesTab";
+import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
@@ -47,7 +48,11 @@ export default async function StudentCourseView({
     include: {
       modules: {
         orderBy: { id: "asc" },
-        include: { lessons: { orderBy: { id: "asc" } } },
+        include: {
+          lessons: { orderBy: { id: "asc" } },
+          liveSessions: { orderBy: { createdAt: "desc" } },
+          recordedClasses: { orderBy: { createdAt: "desc" } },
+        },
       },
       readingMaterials: { orderBy: { createdAt: "desc" } },
       assignments: { orderBy: { createdAt: "desc" } },
@@ -207,19 +212,9 @@ export default async function StudentCourseView({
                 <HelpCircle className="w-4 h-4 mr-3" /> Quizzes
               </Button>
             </Link>
-            <Link href={`?tab=live`}>
-              <Button variant={tab === "live" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "live" ? "bg-red-100 text-red-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
-                <Radio className="w-4 h-4 mr-3" /> Live Classes
-              </Button>
-            </Link>
             <Link href={`?tab=reviews`}>
               <Button variant={tab === "reviews" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "reviews" ? "bg-amber-100 text-amber-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
                 <Star className="w-4 h-4 mr-3" /> Reviews
-              </Button>
-            </Link>
-            <Link href={`?tab=recorded`}>
-              <Button variant={tab === "recorded" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "recorded" ? "bg-indigo-100 text-indigo-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
-                <MonitorPlay className="w-4 h-4 mr-3" /> Recorded Classes
               </Button>
             </Link>
           </div>
@@ -250,6 +245,8 @@ export default async function StudentCourseView({
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
+
+                          {/* ── Lessons ── */}
                           <div className="divide-y divide-slate-100">
                             {module.lessons.length === 0 ? (
                               <div className="p-6 text-sm text-slate-400 text-center bg-slate-50/50">No lessons posted yet.</div>
@@ -264,40 +261,125 @@ export default async function StudentCourseView({
                                       {lessonIndex + 1}. {lesson.title}
                                     </span>
                                   </div>
-
                                   <div className="flex items-center gap-2">
                                     {lesson.videoUrl && (
-                                      <ActivityLink
-                                        href={lesson.videoUrl}
-                                        type="VIDEO"
-                                        message={`Watched video: ${lesson.title}`}
-                                      >
+                                      <ActivityLink href={lesson.videoUrl} type="VIDEO" message={`Watched video: ${lesson.title}`}>
                                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
                                           <PlayCircle className="w-4 h-4 mr-2" /> Watch
                                         </Button>
                                       </ActivityLink>
                                     )}
                                     {lesson.driveLink && (
-                                      <ActivityLink
-                                        href={lesson.driveLink}
-                                        type="MATERIAL"
-                                        message={`Opened notes: ${lesson.title}`}
-                                      >
+                                      <ActivityLink href={lesson.driveLink} type="MATERIAL" message={`Opened notes: ${lesson.title}`}>
                                         <Button size="sm" variant="outline" className="border-slate-300">
                                           <FileText className="w-4 h-4 mr-2" /> Notes
                                         </Button>
                                       </ActivityLink>
                                     )}
                                     {!lesson.videoUrl && !lesson.driveLink && (
-                                      <span className="text-xs text-slate-400 font-medium px-3 py-1 bg-slate-100 rounded-full">
-                                        No Content
-                                      </span>
+                                      <span className="text-xs text-slate-400 font-medium px-3 py-1 bg-slate-100 rounded-full">No Content</span>
                                     )}
                                   </div>
                                 </div>
                               ))
                             )}
                           </div>
+
+                          {/* ── Live Classes ── */}
+                          {module.liveSessions.length > 0 && (
+                            <div className="border-t border-slate-100 px-4 py-3">
+                              <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-2 flex items-center gap-1.5">
+                                <Radio className="w-3.5 h-3.5" /> Live Classes
+                              </p>
+                              <div className="space-y-2">
+                                {module.liveSessions.map((session) => {
+                                  const isLive = session.status === "ONGOING";
+                                  const isScheduled = session.status === "SCHEDULED";
+                                  const isCompleted = session.status === "COMPLETED";
+                                  return (
+                                    <div key={session.id} className={`flex items-center justify-between p-3 rounded-lg border ${
+                                      isLive ? "border-red-300 bg-red-50" :
+                                      isScheduled ? "border-blue-200 bg-blue-50/40" :
+                                      "border-slate-200 bg-slate-50/40 opacity-80"
+                                    }`}>
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold shrink-0 uppercase ${
+                                          isLive ? "bg-red-100 text-red-700" :
+                                          isScheduled ? "bg-blue-100 text-blue-700" :
+                                          "bg-slate-100 text-slate-500"
+                                        }`}>
+                                          {isLive ? "● LIVE NOW" : session.status}
+                                        </span>
+                                        <span className="text-sm font-semibold truncate text-slate-800">{session.title}</span>
+                                        <span className="text-xs text-slate-400 shrink-0">
+                                          {new Date(session.scheduledAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {session.recordingUrl && (
+                                          <VideoPlayerModal
+                                            videoUrl={session.recordingUrl}
+                                            title={`Recording: ${session.title}`}
+                                          >
+                                            <Button variant="outline" size="sm" className="text-blue-600 border-blue-200 text-xs">
+                                              <MonitorPlay className="w-3 h-3 mr-1" /> Recording
+                                            </Button>
+                                          </VideoPlayerModal>
+                                        )}
+                                        {(isLive || isScheduled) && (
+                                          <Link href={`/meet/${session.roomId}`}>
+                                            <Button size="sm" className={`text-white font-semibold text-xs ${
+                                              isLive ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"
+                                            }`}>
+                                              <Video className="w-3 h-3 mr-1" />
+                                              {isLive ? "Join (LIVE)" : "Join Class"}
+                                            </Button>
+                                          </Link>
+                                        )}
+                                        {isCompleted && !session.recordingUrl && (
+                                          <span className="text-xs text-slate-400 px-2 py-1 bg-slate-100 rounded-full">Ended</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Recorded Videos ── */}
+                          {module.recordedClasses.length > 0 && (
+                            <div className="border-t border-slate-100 px-4 py-3">
+                              <p className="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2 flex items-center gap-1.5">
+                                <MonitorPlay className="w-3.5 h-3.5" /> Recorded Videos
+                              </p>
+                              <div className="space-y-2">
+                                {module.recordedClasses.map((rec) => (
+                                  <div key={rec.id} className="flex items-center justify-between p-3 rounded-lg border border-indigo-100 bg-indigo-50/30">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <MonitorPlay className="w-4 h-4 text-indigo-500 shrink-0" />
+                                      <span className="text-sm font-medium truncate text-slate-700">{rec.title}</span>
+                                      {rec.duration && (
+                                        <span className="text-xs text-slate-400 shrink-0">
+                                          {Math.floor(rec.duration / 60)}:{String(rec.duration % 60).padStart(2, "0")}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <VideoPlayerModal
+                                      videoUrl={rec.videoUrl}
+                                      title={rec.title}
+                                      duration={rec.duration}
+                                    >
+                                      <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs">
+                                        <PlayCircle className="w-3 h-3 mr-1" /> Watch
+                                      </Button>
+                                    </VideoPlayerModal>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                         </CardContent>
                       </Card>
                     ))}
@@ -335,6 +417,7 @@ export default async function StudentCourseView({
                           href={rm.link}
                           type="MATERIAL"
                           message={`Opened reading material: ${rm.title}`}
+                          materialId={rm.id}
                           className="ml-4 shrink-0"
                         >
                           <Button className="bg-violet-600 hover:bg-violet-700 text-white shadow-sm">
@@ -481,141 +564,12 @@ export default async function StudentCourseView({
               </div>
             )}
 
-            {/* ---- LIVE CLASSES ---- */}
-            {tab === "live" && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Radio className="w-6 h-6 text-red-600" />
-                  <h3 className="text-2xl font-bold text-slate-800">Live Classes</h3>
-                </div>
-
-                {course.liveSessions.length === 0 ? (
-                  <div className="text-center py-16 text-slate-500 bg-white rounded-lg border border-slate-200 shadow-sm">
-                    No live sessions scheduled yet.
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {course.liveSessions.map((session) => {
-                      const joinLink = `/meet/${session.roomId}`;
-                      const isLive = session.status === "ONGOING";
-                      const isScheduled = session.status === "SCHEDULED";
-                      const isCompleted = session.status === "COMPLETED";
-                      const scheduledTime = new Date(session.scheduledAt).toLocaleString("en-IN", {
-                        weekday: "short",
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      });
-                      return (
-                        <Card
-                          key={session.id}
-                          className={`border bg-white overflow-hidden transition-all ${
-                            isLive
-                              ? "ring-2 ring-red-400 border-red-400 shadow-md shadow-red-100"
-                              : isScheduled
-                              ? "border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md"
-                              : "border-slate-200 shadow-sm opacity-75"
-                          }`}
-                        >
-                          {/* Status indicator bar */}
-                          <div className={`h-1 w-full ${
-                            isLive ? "bg-red-500" :
-                            isScheduled ? "bg-blue-500" :
-                            "bg-slate-300"
-                          }`} />
-                          <CardContent className="p-6">
-                            <div className="flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap">
-                              {/* Left: icon + details */}
-                              <div className="flex items-center gap-4 min-w-0">
-                                <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${
-                                  isLive ? "bg-red-100 animate-pulse" :
-                                  isScheduled ? "bg-blue-50" :
-                                  "bg-slate-100"
-                                }`}>
-                                  <Video className={`w-6 h-6 ${
-                                    isLive ? "text-red-600" :
-                                    isScheduled ? "text-blue-600" :
-                                    "text-slate-400"
-                                  }`} />
-                                </div>
-                                <div className="min-w-0 space-y-1.5">
-                                  <h4 className="font-bold text-xl text-slate-900 truncate">{session.title}</h4>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    {/* Status badge */}
-                                    <span className={`text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider ${
-                                      isLive ? "bg-red-100 text-red-700" :
-                                      isScheduled ? "bg-blue-100 text-blue-700" :
-                                      "bg-slate-100 text-slate-500"
-                                    }`}>
-                                      {isLive ? "● LIVE NOW" : session.status}
-                                    </span>
-                                    {/* Scheduled time */}
-                                    <span className="text-sm text-slate-500 flex items-center gap-1">
-                                      <span>📅</span>
-                                      <span>{scheduledTime}</span>
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Right: action buttons */}
-                              <div className="flex items-center gap-3 shrink-0 mt-4 sm:mt-0 w-full sm:w-auto">
-                                {/* Recording button (completed sessions) */}
-                                {session.recordingUrl && (
-                                  <Link href={session.recordingUrl} target="_blank" className="w-full sm:w-auto">
-                                    <Button variant="outline" className="w-full sm:w-auto text-blue-700 border-blue-200 hover:bg-blue-50 bg-white">
-                                      <Link2 className="w-4 h-4 mr-2" /> Watch Recording
-                                    </Button>
-                                  </Link>
-                                )}
-
-                                {/* Join Class — shown for SCHEDULED and ONGOING */}
-                                {(isLive || isScheduled) && (
-                                  <Link href={joinLink} className="w-full sm:w-auto">
-                                    <Button
-                                      className={`w-full sm:w-auto font-bold shadow-md ${
-                                        isLive
-                                          ? "bg-red-600 hover:bg-red-700 text-white shadow-red-200"
-                                          : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200"
-                                      }`}
-                                    >
-                                      <Video className="w-4 h-4 mr-2" />
-                                      {isLive ? "Join Class (LIVE)" : "Join Class"}
-                                    </Button>
-                                  </Link>
-                                )}
-
-                                {/* Completed — no active join */}
-                                {isCompleted && !session.recordingUrl && (
-                                  <span className="text-sm text-slate-400 font-medium px-3 py-1 bg-slate-100 rounded-full">
-                                    Session Ended
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* ---- REVIEWS ---- */}
             {tab === "reviews" && (
               <CourseReviewSection
                 courseId={course.id}
                 currentStudentId={studentId}
               />
-            )}
-
-            {/* ---- RECORDED CLASSES ---- */}
-            {tab === "recorded" && (
-              <RecordedClassesTab courseId={courseId} isInstructor={false} />
             )}
 
           </div>

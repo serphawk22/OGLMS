@@ -9,6 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
+    // Use pooler URL — Neon free tier blocks direct TCP on port 5432 from outside Neon's network.
+    url: process.env["DATABASE_URL"],
   },
 });

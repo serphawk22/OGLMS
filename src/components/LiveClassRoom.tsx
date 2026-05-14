@@ -19,6 +19,7 @@ interface LiveClassRoomProps {
   instructorName?: string;
   courseId?: string;       // used to associate recording with a course
   sessionTitle?: string;  // used as the recording title
+  moduleId?: string;      // optional: link recording to a specific module
 }
 
 interface OverlayProps {
@@ -267,7 +268,7 @@ function FacecamOverlay({
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LiveClassRoom({
   roomId, userId, userName, isHost, instructorName = "Instructor",
-  courseId, sessionTitle,
+  courseId, sessionTitle, moduleId,
 }: LiveClassRoomProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const zpRef        = useRef<any>(null);
@@ -442,6 +443,7 @@ export default function LiveClassRoom({
                     title,
                     videoUrl,
                     duration: finalDuration,
+                    ...(moduleId ? { moduleId } : {}),
                   }),
                 });
                 if (!res.ok) {

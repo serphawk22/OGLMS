@@ -47,11 +47,17 @@ export default async function MeetPage({ params }: PageProps) {
   // ── Fetch session ─────────────────────────────────────────────────────────
   const session = await prisma.liveSession.findUnique({
     where: { roomId },
-    include: {
+    select: {
+      id: true,
+      roomId: true,
+      title: true,
+      status: true,
+      moduleId: true,
       course: {
         select: {
           id: true,
           title: true,
+          organizationId: true,
           creator: { select: { name: true } },
         },
       },
@@ -157,6 +163,7 @@ export default async function MeetPage({ params }: PageProps) {
           instructorName={instructorName}
           courseId={session.course.id}
           sessionTitle={session.title}
+          moduleId={session.moduleId ?? undefined}
         />
       </div>
     </div>

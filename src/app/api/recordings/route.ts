@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { courseId, title, videoUrl, duration } = await req.json();
+    const { courseId, title, videoUrl, duration, moduleId } = await req.json();
 
     if (!courseId || !title || !videoUrl) {
       return NextResponse.json(
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
         title,
         videoUrl,
         duration: duration ?? null,
+        ...(moduleId ? { moduleId } : {}),
       },
     });
 

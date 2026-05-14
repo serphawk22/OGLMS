@@ -9,6 +9,7 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 import { CalendarDropdown } from "@/components/CalendarDropdown";
 import { CourseCard } from "@/components/CourseCard";
+import { RecommendedCourseCard } from "@/components/RecommendedCourseCard";
 import {
   BookOpen,
   PlayCircle,
@@ -258,6 +259,9 @@ export default async function StudentDashboard() {
         <div className="space-y-8">
           
           
+          {/* RECOMMENDED NEXT COURSE */}
+          <RecommendedCourseCard />
+
           {/* LIVE SESSIONS CARD */}
           <BorderGlow borderRadius={12} backgroundColor="white" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.5}>
             <Card id="live" className="border-slate-200 shadow-sm bg-white overflow-hidden h-full">

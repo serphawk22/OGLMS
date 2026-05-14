@@ -8,13 +8,17 @@ const globalForPool = globalThis as unknown as { pgPool: Pool; prisma: PrismaCli
 function createPool(): Pool {
   return new Pool({
     connectionString: process.env.DATABASE_URL as string,
+    // Neon uses TLS on its pooler endpoint. The Node pg driver cannot verify
+    // Neon's certificate chain by default, so we keep the connection encrypted
+    // but skip CA verification. This is the standard fix for Neon + pg.
+    ssl: { rejectUnauthorized: false },
     // Keep the pool small so we never exhaust the DB's connection limit.
     // Neon/Supabase free tiers typically allow ~10–20 simultaneous connections.
     max: 8,
     // Kill idle connections after 30 s to avoid stale-connection errors.
     idleTimeoutMillis: 30_000,
-    // If no connection is available within 10 s, throw rather than hanging forever.
-    connectionTimeoutMillis: 10_000,
+    // If no connection is available within 15 s, throw rather than hanging forever.
+    connectionTimeoutMillis: 15_000,
     // Keep-alive pings so the DB proxy doesn't silently drop idle connections.
     keepAlive: true,
     keepAliveInitialDelayMillis: 10_000,

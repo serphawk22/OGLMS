@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (!instructor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { courseId, title, scheduledAt: scheduledAtRaw } = await req.json();
+    const { courseId, title, scheduledAt: scheduledAtRaw, moduleId } = await req.json();
     if (!courseId || !title) {
       return NextResponse.json({ error: "courseId and title are required" }, { status: 400 });
     }
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const roomId = randomBytes(8).toString("hex");
 
     const session = await prisma.liveSession.create({
-      data: { roomId, title, courseId, status: "SCHEDULED", scheduledAt },
+      data: { roomId, title, courseId, status: "SCHEDULED", scheduledAt, ...(moduleId ? { moduleId } : {}) },
     });
 
     // ── Notifications (email + in-app) ─────────────────────────────────────

@@ -37,6 +37,7 @@ model User {
   reviews         Review[]
   quizSubmissions QuizSubmission[]
   recordedClasses RecordedClass[]
+  materialViews   MaterialView[]
 }
 
 model OrganizationMember {
@@ -77,11 +78,13 @@ model Course {
 }
 
 model Module {
-  id        String   @id @default(cuid())
-  title     String
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons   Lesson[]
+  id              String          @id @default(cuid())
+  title           String
+  courseId        String
+  course          Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons         Lesson[]
+  liveSessions    LiveSession[]   // module-specific live classes (optional)
+  recordedClasses RecordedClass[] // module-specific recordings (optional)
 
   @@index([courseId])
 }
@@ -152,12 +155,13 @@ model AssignmentSubmission {
 }
 
 model ReadingMaterial {
-  id        String   @id @default(cuid())
-  title     String
-  link      String
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id            String         @id @default(cuid())
+  title         String
+  link          String
+  courseId      String
+  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  materialViews MaterialView[]
 }
 
 model Quiz {
@@ -233,12 +237,16 @@ model LiveSession {
   title        String
   courseId     String
   course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  // Optional: link this session to a specific module (null = course-level, backward-compatible)
+  moduleId     String?
+  module       Module?           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   status       LiveSessionStatus @default(SCHEDULED)
   scheduledAt  DateTime          @default(now())
   recordingUrl String?
   createdAt    DateTime          @default(now())
 
   @@index([courseId])
+  @@index([moduleId])
 }
 
 // --- AI Chat History ---
@@ -295,10 +303,30 @@ model RecordedClass {
   title        String
   videoUrl     String
   duration     Int?     // in seconds
+  // Optional: link this recording to a specific module (null = course-level, backward-compatible)
+  moduleId     String?
+  module       Module?  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   course       Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   instructor   User     @relation(fields: [instructorId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
   @@index([instructorId])
+  @@index([moduleId])
+}
+
+// ── Per-student reading material view tracking ──────────────────────────────
+
+model MaterialView {
+  id         String          @id @default(cuid())
+  materialId String
+  studentId  String
+  viewedAt   DateTime        @default(now())
+  viewCount  Int             @default(1)
+  material   ReadingMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  student    User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([materialId, studentId])
+  @@index([materialId])
+  @@index([studentId])
 }
