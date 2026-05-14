@@ -16,6 +16,8 @@ import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
+import { StaggeredMenu } from "@/components/StaggeredMenu";
+
 export default async function StudentCourseView({ 
   params,
   searchParams
@@ -125,8 +127,37 @@ export default async function StudentCourseView({
     });
   }
 
+  const menuItems = [
+    { label: 'Back to Dashboard', ariaLabel: 'Go back to dashboard', link: '/student' },
+    { label: 'Modules', ariaLabel: 'View modules', link: `?tab=modules` },
+    { label: 'Reading Materials', ariaLabel: 'View materials', link: `?tab=reading` },
+    { label: 'Assignments', ariaLabel: 'View assignments', link: `?tab=assignments` },
+    { label: 'Quizzes', ariaLabel: 'View quizzes', link: `?tab=quizzes` },
+    { label: 'Live Classes', ariaLabel: 'View live classes', link: `?tab=live` },
+  ];
+
+  const socialItems = [
+    { label: 'Discord', link: 'https://discord.com' },
+    { label: 'Support', link: '/support' }
+  ];
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
+      
+      <StaggeredMenu
+        isFixed={true}
+        position="right"
+        items={menuItems}
+        socialItems={socialItems}
+        displaySocials={true}
+        displayItemNumbering={true}
+        menuButtonColor="#ffffff"
+        openMenuButtonColor="#0f172a"
+        changeMenuColorOnOpen={true}
+        colors={['#3b82f6', '#1d4ed8']}
+        accentColor="#3b82f6"
+      />
+
       {/* Top Navbar */}
       <div className="bg-slate-900 text-white p-4 flex items-center justify-between shadow-md sticky top-0 z-10">
         <div className="flex items-center gap-4">
@@ -138,8 +169,11 @@ export default async function StudentCourseView({
           <div className="h-6 w-px bg-slate-700" />
           <h1 className="text-lg font-bold">{course.title}</h1>
         </div>
-        <div className="text-xs font-medium bg-blue-600 px-3 py-1.5 rounded-full">Student View</div>
+        <div className="flex items-center gap-4 pr-16">
+          <div className="text-xs font-medium bg-blue-600 px-3 py-1.5 rounded-full">Student View</div>
+        </div>
       </div>
+
 
       <div className="max-w-6xl mx-auto p-8 space-y-6">
         

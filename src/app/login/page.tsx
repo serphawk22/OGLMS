@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Logo } from "@/components/Logo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -54,8 +55,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa] p-4">
-      <Card className="w-full max-w-md shadow-sm border-slate-200">
+    <div className="min-h-screen flex items-center justify-center bg-[#ffffff] p-4 relative">
+      <nav className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20 bg-white/60 backdrop-blur-md border-b border-gray-200">
+        <Logo />
+        <div className="space-x-4">
+          <Link href="/login" className="px-4 py-2 bg-black text-white rounded-md text-sm font-medium">Login</Link>
+          <Link href="/register" className="px-4 py-2 border border-black text-black rounded-md text-sm font-medium">Register</Link>
+        </div>
+      </nav>
+      <Card className="w-full max-w-md shadow-sm border-slate-200 mt-16">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</CardTitle>
           <CardDescription className="text-slate-500">Enter your credentials to access your dashboard</CardDescription>

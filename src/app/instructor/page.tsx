@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/LogoutButton";
 import { PlusCircle, Upload, KeyRound, Building, Users, GraduationCap, BookOpen, UserMinus, Settings, FileText } from "lucide-react";
 
+import { StaggeredMenu } from "@/components/StaggeredMenu";
+
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
 async function removeMember(formData: FormData) {
@@ -143,27 +145,58 @@ export default async function InstructorDashboard() {
     })
   ]);
 
+  const menuItems = [
+    { label: 'Workspace', ariaLabel: 'Go back to workspace', link: '/instructor' },
+    { label: 'Course Library', ariaLabel: 'View courses', link: '/instructor#courses' },
+    { label: 'Directory', ariaLabel: 'View directory', link: '/instructor#directory' },
+    { label: 'My Profile', ariaLabel: 'View profile', link: '/instructor/profile' },
+  ];
+
+  const socialItems = [
+    { label: 'Admin Hub', link: '/admin' },
+    { label: 'Docs', link: '/docs' }
+  ];
+
   return (
-    <div className="min-h-screen bg-[#f8f9fa] p-8 text-slate-900">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
+      
+      <StaggeredMenu
+        isFixed={true}
+        position="right"
+        items={menuItems}
+        socialItems={socialItems}
+        displaySocials={true}
+        displayItemNumbering={true}
+        menuButtonColor="#0f172a"
+        openMenuButtonColor="#0f172a"
+        changeMenuColorOnOpen={true}
+        colors={['#8b5cf6', '#6d28d9']}
+        accentColor="#8b5cf6"
+      />
+
+      <div className="max-w-5xl mx-auto p-8 space-y-8">
         
-        
-        <div className="flex justify-between items-center bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Instructor Workspace</h1>
-            <div className="flex items-center gap-2 mt-2 text-slate-600">
-              <Building className="w-4 h-4"/>
-              <span className="font-medium">{org.name}</span>
-              <span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-700 font-semibold">{membership.role}</span>
+        <div className="flex justify-between items-center bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-5">
+            <div className="bg-slate-900 p-4 rounded-2xl text-white shadow-xl shadow-slate-200">
+               <Building className="w-8 h-8"/>
+            </div>
+            <div>
+              <h1 className="text-3xl font-black tracking-tight">Instructor Workspace</h1>
+              <div className="flex items-center gap-3 mt-2">
+                <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">{org.name}</span>
+                <span className="text-[10px] bg-slate-100 px-3 py-1 rounded-full text-slate-700 font-black border border-slate-200">{membership.role}</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 pr-16">
             <Link href="/instructor/profile">
-              <Button variant="outline" className="border-slate-200 hover:bg-slate-50">My Profile</Button>
+              <Button variant="outline" className="rounded-xl border-slate-200 hover:bg-slate-50 font-bold">My Profile</Button>
             </Link>
             <LogoutButton/>
           </div>
         </div>
+
 
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -197,7 +230,7 @@ export default async function InstructorDashboard() {
         </div>
 
         
-        <div className="space-y-4">
+        <div className="space-y-4" id="courses">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-slate-900">Your Course Library</h2>
           </div>
@@ -261,7 +294,7 @@ export default async function InstructorDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200 shadow-none">
+            <Card id="directory" className="border-slate-200 shadow-none">
               <CardHeader>
                 <CardTitle className="text-lg">Workspace Directory</CardTitle>
               </CardHeader>

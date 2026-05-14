@@ -21,6 +21,8 @@ import {
   ClipboardList,
 } from "lucide-react";
 
+import { StaggeredMenu } from "@/components/StaggeredMenu";
+
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
 export default async function StudentDashboard() {
@@ -133,30 +135,54 @@ export default async function StudentDashboard() {
     enrolled: enrolledSet.has(c.id),
   }));
 
+  const menuItems = [
+    { label: 'Dashboard', ariaLabel: 'Go to dashboard', link: '/student' },
+    { label: 'My Courses', ariaLabel: 'View your courses', link: '/student#courses' },
+    { label: 'Live Sessions', ariaLabel: 'View live classes', link: '/student#live' },
+    { label: 'My Profile', ariaLabel: 'View your profile', link: '/student/profile' },
+  ];
+
+  const socialItems = [
+    { label: 'Discord', link: 'https://discord.com' },
+    { label: 'Support', link: '/support' }
+  ];
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
       
+      <StaggeredMenu
+        isFixed={true}
+        position="right"
+        items={menuItems}
+        socialItems={socialItems}
+        displaySocials={true}
+        displayItemNumbering={true}
+        menuButtonColor="#0f172a"
+        openMenuButtonColor="#0f172a"
+        changeMenuColorOnOpen={true}
+        colors={['#3b82f6', '#1d4ed8']}
+        accentColor="#3b82f6"
+      />
       
-      <div className="bg-white border-b border-slate-200 px-8 py-4 shadow-sm">
+      <div className="bg-white border-b border-slate-200 px-8 py-6 shadow-sm">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg text-white">
-              <Building className="w-5 h-5"/>
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-600 p-3 rounded-xl text-white shadow-lg shadow-blue-200">
+              <Building className="w-6 h-6"/>
             </div>
             <div>
-              <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Campus Hub</p>
-              <h1 className="text-xl font-bold text-slate-900">{org.name}</h1>
+              <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-0.5">Campus Hub</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">{org.name}</h1>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-6 pr-16"> {/* pr-16 to avoid overlapping with menu button if needed, although it's usually fixed */}
             <div className="text-right hidden md:block">
-              <Link href="/student/profile" className="hover:text-blue-600 transition-colors">
-                <p className="text-sm font-bold">{user.name}</p>
+              <Link href="/student/profile" className="group">
+                <p className="text-sm font-bold group-hover:text-blue-600 transition-colors">{user.name}</p>
+                <p className="text-[10px] text-slate-500 font-medium">Student ID: {user.id.slice(0, 8)}</p>
               </Link>
-              <p className="text-xs text-slate-500">Student ID: {user.id.slice(0, 8)}</p>
             </div>
-            {/* Navbar icon buttons — client components */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <NotificationsDropdown />
               <CalendarDropdown />
             </div>
@@ -164,6 +190,7 @@ export default async function StudentDashboard() {
           </div>
         </div>
       </div>
+
 
       <main className="max-w-7xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         
@@ -203,7 +230,7 @@ export default async function StudentDashboard() {
             </CardContent>
           </Card>
 
-                   <div className="space-y-4">
+                    <div className="space-y-4" id="courses">
             <div className="flex justify-between items-center">
                <h3 className="text-lg font-bold flex items-center gap-2">
                  <BookOpen className="w-5 h-5 text-blue-600"/> Available Courses
@@ -229,7 +256,7 @@ export default async function StudentDashboard() {
           
           
           {/* LIVE SESSIONS CARD */}
-          <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+          <Card id="live" className="border-slate-200 shadow-sm bg-white overflow-hidden">
             <CardHeader className="pb-3 border-b border-slate-50">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Radio className="w-4 h-4 text-red-500" /> Live Classes

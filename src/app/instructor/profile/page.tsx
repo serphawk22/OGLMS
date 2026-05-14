@@ -8,6 +8,7 @@ import { ArrowLeft, Users, Star, PlayCircle, Briefcase, MapPin, CheckCircle2, Bu
 import Link from "next/link";
 import { LogoutButton } from "@/components/LogoutButton";
 import { ExpertiseEditor } from "@/components/ExpertiseEditor";
+import { StaggeredMenu } from "@/components/StaggeredMenu";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
@@ -73,9 +74,36 @@ export default async function InstructorProfile() {
         ) / 10
       : null;
 
+  const menuItems = [
+    { label: 'Workspace', ariaLabel: 'Go back to workspace', link: '/instructor' },
+    { label: 'Course Library', ariaLabel: 'View courses', link: '/instructor#courses' },
+    { label: 'Directory', ariaLabel: 'View directory', link: '/instructor#directory' },
+    { label: 'My Profile', ariaLabel: 'View profile', link: '/instructor/profile' },
+  ];
+
+  const socialItems = [
+    { label: 'Admin Hub', link: '/admin' },
+    { label: 'Support', link: '/support' }
+  ];
+
   return (
-    <div className="min-h-screen bg-[#f8f9fa] p-8 text-slate-900 font-sans">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#f8f9fa] text-slate-900 font-sans selection:bg-violet-100">
+      
+      <StaggeredMenu
+        isFixed={true}
+        position="right"
+        items={menuItems}
+        socialItems={socialItems}
+        displaySocials={true}
+        displayItemNumbering={true}
+        menuButtonColor="#0f172a"
+        openMenuButtonColor="#0f172a"
+        changeMenuColorOnOpen={true}
+        colors={['#8b5cf6', '#6d28d9']}
+        accentColor="#8b5cf6"
+      />
+
+      <div className="p-8 max-w-5xl mx-auto space-y-8">
         
         {/* Standard Instructor Header (matches dashboard) */}
         <div className="flex justify-between items-center bg-white p-6 rounded-lg border border-slate-200 shadow-sm">

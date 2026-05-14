@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Cloud, Save, Globe, Lock, ExternalLink, Trash2 } from "lucide-react";
+import { StaggeredMenu } from "@/components/StaggeredMenu";
 
 // Server Action: Update Lesson Details
 async function updateLesson(formData: FormData) {
@@ -43,9 +44,36 @@ export default async function LessonEditorPage({
 
   if (!lesson) redirect(`/instructor/courses/${courseId}`);
 
+  const menuItems = [
+    { label: 'Workspace', ariaLabel: 'Go back to workspace', link: '/instructor' },
+    { label: 'Course Builder', ariaLabel: 'Go back to course', link: `/instructor/courses/${courseId}` },
+    { label: 'Directory', ariaLabel: 'View directory', link: '/instructor#directory' },
+    { label: 'My Profile', ariaLabel: 'View profile', link: '/instructor/profile' },
+  ];
+
+  const socialItems = [
+    { label: 'Admin Hub', link: '/admin' },
+    { label: 'Support', link: '/support' }
+  ];
+
   return (
-    <div className="min-h-screen bg-[#f8f9fa] p-8 text-slate-900">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
+      
+      <StaggeredMenu
+        isFixed={true}
+        position="right"
+        items={menuItems}
+        socialItems={socialItems}
+        displaySocials={true}
+        displayItemNumbering={true}
+        menuButtonColor="#0f172a"
+        openMenuButtonColor="#0f172a"
+        changeMenuColorOnOpen={true}
+        colors={['#8b5cf6', '#6d28d9']}
+        accentColor="#8b5cf6"
+      />
+
+      <div className="max-w-4xl mx-auto p-8 space-y-6">
         
         
         <Link href={`/instructor/courses/${courseId}`}>

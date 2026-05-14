@@ -15,6 +15,8 @@ import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { sendLiveClassEmail } from "@/lib/mail";
 import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 
+import { StaggeredMenu } from "@/components/StaggeredMenu";
+
 // --- SERVER ACTIONS ---
 
 async function createModule(formData: FormData) {
@@ -333,16 +335,45 @@ export default async function CourseBuilderPage({
     // silently degrade — submissions show as empty
   }
 
+  const menuItems = [
+    { label: 'Back to Workspace', ariaLabel: 'Go back to workspace', link: '/instructor' },
+    { label: 'Curriculum Builder', ariaLabel: 'View modules', link: `?tab=modules` },
+    { label: 'Reading Materials', ariaLabel: 'View materials', link: `?tab=reading` },
+    { label: 'Assignments', ariaLabel: 'View assignments', link: `?tab=assignments` },
+    { label: 'Quizzes & Tests', ariaLabel: 'View quizzes', link: `?tab=quizzes` },
+    { label: 'Live Classes', ariaLabel: 'View live classes', link: `?tab=live` },
+  ];
+
+  const socialItems = [
+    { label: 'Admin Hub', link: '/admin' },
+    { label: 'Support', link: '/support' }
+  ];
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] p-8 text-slate-900">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
+      
+      <StaggeredMenu
+        isFixed={true}
+        position="right"
+        items={menuItems}
+        socialItems={socialItems}
+        displaySocials={true}
+        displayItemNumbering={true}
+        menuButtonColor="#0f172a"
+        openMenuButtonColor="#0f172a"
+        changeMenuColorOnOpen={true}
+        colors={['#8b5cf6', '#6d28d9']}
+        accentColor="#8b5cf6"
+      />
+
+      <div className="max-w-6xl mx-auto p-8 space-y-6">
         
         <Link href="/instructor">
           <Button variant="ghost" className="text-slate-500 hover:text-slate-900 mb-4 px-0">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Workspace
           </Button>
         </Link>
+
 
         {/* Header Section */}
         <div className="flex justify-between items-end border-b border-slate-200 pb-6">

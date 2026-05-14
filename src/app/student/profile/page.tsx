@@ -7,6 +7,7 @@ import { NotificationsDropdown } from "@/components/NotificationsDropdown";
 import { CalendarDropdown } from "@/components/CalendarDropdown";
 import { LogoutButton } from "@/components/LogoutButton";
 import { StudentProfileClient } from "@/components/StudentProfileClient";
+import { StaggeredMenu } from "@/components/StaggeredMenu";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
@@ -34,9 +35,35 @@ export default async function StudentProfilePage() {
 
   const org = user.memberships[0].organization;
 
+  const menuItems = [
+    { label: 'Dashboard', ariaLabel: 'Go to dashboard', link: '/student' },
+    { label: 'My Courses', ariaLabel: 'View your courses', link: '/student#courses' },
+    { label: 'Live Sessions', ariaLabel: 'View live classes', link: '/student#live' },
+    { label: 'My Profile', ariaLabel: 'View your profile', link: '/student/profile' },
+  ];
+
+  const socialItems = [
+    { label: 'Discord', link: 'https://discord.com' },
+    { label: 'Support', link: '/support' }
+  ];
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#f8f9fa] text-slate-900 font-sans selection:bg-blue-100 pb-20">
+      
+      <StaggeredMenu
+        isFixed={true}
+        position="right"
+        items={menuItems}
+        socialItems={socialItems}
+        displaySocials={true}
+        displayItemNumbering={true}
+        menuButtonColor="#0f172a"
+        openMenuButtonColor="#0f172a"
+        changeMenuColorOnOpen={true}
+        colors={['#3b82f6', '#1d4ed8']}
+        accentColor="#3b82f6"
+      />
 
       {/* Standardised Top Navbar */}
       <div className="bg-white border-b border-slate-200 px-8 py-4 shadow-sm">
