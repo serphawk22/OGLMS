@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/LogoutButton";
-import { PlusCircle, Upload, KeyRound, Building, Users, GraduationCap, BookOpen, UserMinus, Settings, FileText } from "lucide-react";
+import { PlusCircle, KeyRound, Building, GraduationCap, BookOpen, UserMinus, Settings } from "lucide-react";
 
 import { StaggeredMenu } from "@/components/StaggeredMenu";
 import BorderGlow from "@/components/BorderGlow";
@@ -129,21 +129,24 @@ export default async function InstructorDashboard() {
   const isFounder = membership.role === "ADMIN";
 
   // FETCH ALL DATA INCLUDING COURSES
-  const [enrolledStudentCount, instructorCount, courses, allMembers] = await Promise.all([
-    // Real enrolled student count across all courses in this org
-    prisma.enrollment.count({
-      where: { course: { organizationId: org.id } },
-    }),
-    prisma.organizationMember.count({ where: { organizationId: org.id, role: "INSTRUCTOR" } }),
-    prisma.course.findMany({ 
+  const [courses, allMembers, myCoursesCount, myStudentsCount] = await Promise.all([
+    prisma.course.findMany({
       where: { organizationId: org.id },
-      orderBy: { id: 'desc' }
+      orderBy: { id: 'desc' },
     }),
-    prisma.organizationMember.findMany({ 
+    prisma.organizationMember.findMany({
       where: { organizationId: org.id },
       include: { user: true },
-      orderBy: { role: 'asc' } 
-    })
+      orderBy: { role: 'asc' },
+    }),
+    // My Courses: courses created by this instructor
+    prisma.course.count({
+      where: { creatorId: user.id },
+    }),
+    // Total Students: students enrolled in this instructor's courses
+    prisma.enrollment.count({
+      where: { course: { creatorId: user.id } },
+    }),
   ]);
 
   const menuItems = [
@@ -202,7 +205,8 @@ export default async function InstructorDashboard() {
 
 
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* ── Dashboard stat cards: 2-up, identical styling ─────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <BorderGlow borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
             <Card className="border-slate-200 shadow-none h-full">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -210,29 +214,20 @@ export default async function InstructorDashboard() {
                 <GraduationCap className="h-4 w-4 text-slate-400"/>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{enrolledStudentCount}</div>
+                <div className="text-2xl font-bold">{myStudentsCount}</div>
+                <p className="text-xs text-slate-400 mt-1">enrolled in your courses</p>
               </CardContent>
             </Card>
           </BorderGlow>
           <BorderGlow borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
             <Card className="border-slate-200 shadow-none h-full">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Active Instructors</CardTitle>
-                <Users className="h-4 w-4 text-slate-400"/>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{instructorCount + (isFounder ? 1 : 0)}</div>
-              </CardContent>
-            </Card>
-          </BorderGlow>
-          <BorderGlow borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
-            <Card className="border-slate-200 shadow-none h-full">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Workspace Courses</CardTitle>
+                <CardTitle className="text-sm font-medium text-slate-500">My Courses</CardTitle>
                 <BookOpen className="h-4 w-4 text-slate-400"/>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{courses.length}</div>
+                <div className="text-2xl font-bold">{myCoursesCount}</div>
+                <p className="text-xs text-slate-400 mt-1">created by you</p>
               </CardContent>
             </Card>
           </BorderGlow>
