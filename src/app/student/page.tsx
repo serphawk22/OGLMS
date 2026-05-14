@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { StaggeredMenu } from "@/components/StaggeredMenu";
+import BorderGlow from "@/components/BorderGlow";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
@@ -198,37 +199,39 @@ export default async function StudentDashboard() {
         <div className="lg:col-span-2 space-y-8">
           
           
-          <Card className="border-none shadow-md overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-            <CardContent className="p-0">
-              <div className="grid md:grid-cols-2">
-                <div className="p-8 space-y-4">
-                  <div className="flex items-center gap-2 text-blue-400">
-                    <Sparkles className="w-4 h-4"/>
-                    <span className="text-xs font-bold uppercase tracking-tighter">Daily Standup Bite</span>
+          <BorderGlow borderRadius={16} backgroundColor="#0f172a" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.8}>
+            <Card className="border-none shadow-md overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 text-white h-full">
+              <CardContent className="p-0">
+                <div className="grid md:grid-cols-2">
+                  <div className="p-8 space-y-4">
+                    <div className="flex items-center gap-2 text-blue-400">
+                      <Sparkles className="w-4 h-4"/>
+                      <span className="text-xs font-bold uppercase tracking-tighter">Daily Standup Bite</span>
+                    </div>
+                    <h2 className="text-2xl font-bold leading-tight">
+                      {latestBite ? latestBite.title : "Ready for today's lesson?"}
+                    </h2>
+                    <p className="text-slate-400 text-sm">
+                      Watch this 5-minute mandatory update before starting your modules for today.
+                    </p>
+                    {latestBite?.videoUrl && (
+                      <Link href={latestBite.videoUrl} target="_blank">
+                        <Button className="bg-white text-slate-900 hover:bg-slate-100">
+                          <PlayCircle className="w-4 h-4 mr-2"/> Start Learning
+                        </Button>
+                      </Link>
+                    )}
                   </div>
-                  <h2 className="text-2xl font-bold leading-tight">
-                    {latestBite ? latestBite.title : "Ready for today's lesson?"}
-                  </h2>
-                  <p className="text-slate-400 text-sm">
-                    Watch this 5-minute mandatory update before starting your modules for today.
-                  </p>
-                  {latestBite?.videoUrl && (
-                    <Link href={latestBite.videoUrl} target="_blank">
-                      <Button className="bg-white text-slate-900 hover:bg-slate-100">
-                        <PlayCircle className="w-4 h-4 mr-2"/> Start Learning
-                      </Button>
-                    </Link>
-                  )}
+                  <div className="bg-slate-700/50 flex items-center justify-center p-8 border-l border-slate-700">
+                     <div className="text-center opacity-40">
+                        <Video className="w-16 h-16 mx-auto mb-2"/>
+                        <p className="text-xs">Secure Campus Stream</p>
+                     </div>
+                  </div>
                 </div>
-                <div className="bg-slate-700/50 flex items-center justify-center p-8 border-l border-slate-700">
-                   <div className="text-center opacity-40">
-                      <Video className="w-16 h-16 mx-auto mb-2"/>
-                      <p className="text-xs">Secure Campus Stream</p>
-                   </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </BorderGlow>
 
                     <div className="space-y-4" id="courses">
             <div className="flex justify-between items-center">
@@ -256,17 +259,18 @@ export default async function StudentDashboard() {
           
           
           {/* LIVE SESSIONS CARD */}
-          <Card id="live" className="border-slate-200 shadow-sm bg-white overflow-hidden">
-            <CardHeader className="pb-3 border-b border-slate-50">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Radio className="w-4 h-4 text-red-500" /> Live Classes
-                {liveSessions.some(s => s.status === "ONGOING") && (
-                  <span className="ml-auto text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse font-bold">
-                    LIVE
-                  </span>
-                )}
-              </CardTitle>
-            </CardHeader>
+          <BorderGlow borderRadius={12} backgroundColor="white" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.5}>
+            <Card id="live" className="border-slate-200 shadow-sm bg-white overflow-hidden h-full">
+              <CardHeader className="pb-3 border-b border-slate-50">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-red-500" /> Live Classes
+                  {liveSessions.some(s => s.status === "ONGOING") && (
+                    <span className="ml-auto text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse font-bold">
+                      LIVE
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
             <CardContent className="divide-y divide-slate-100 p-0">
               {liveSessions.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400">
@@ -312,88 +316,93 @@ export default async function StudentDashboard() {
               )}
             </CardContent>
           </Card>
+        </BorderGlow>
 
           {/* ANNOUNCEMENTS */}
-          <Card className="border-slate-200 shadow-sm bg-white">
-            <CardHeader className="pb-3 border-b border-slate-50">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Bell className="w-4 h-4 text-amber-500"/> Announcements
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="p-4 border-l-4 border-blue-400 bg-blue-50/50">
-                <p className="text-sm font-bold text-blue-900">Stay Updated</p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Check the 🔔 bell icon for the latest notifications from your instructors — new modules, assignments, and live sessions.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <BorderGlow borderRadius={12} backgroundColor="white" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.5}>
+            <Card className="border-slate-200 shadow-sm bg-white h-full">
+              <CardHeader className="pb-3 border-b border-slate-50">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-amber-500"/> Announcements
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="p-4 border-l-4 border-blue-400 bg-blue-50/50">
+                  <p className="text-sm font-bold text-blue-900">Stay Updated</p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Check the 🔔 bell icon for the latest notifications from your instructors — new modules, assignments, and live sessions.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </BorderGlow>
 
           
           {/* PENDING ASSESSMENTS */}
-          <Card className="border-slate-200 shadow-sm bg-white">
-            <CardHeader className="pb-3 border-b border-slate-50">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-blue-600"/> Pending Assessments
-                {(pendingQuizzes.length + pendingAssignments.length) > 0 && (
-                  <span className="ml-auto text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
-                    {pendingQuizzes.length + pendingAssignments.length}
-                  </span>
+          <BorderGlow borderRadius={12} backgroundColor="white" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.5}>
+            <Card className="border-slate-200 shadow-sm bg-white h-full">
+              <CardHeader className="pb-3 border-b border-slate-50">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-blue-600"/> Pending Assessments
+                  {(pendingQuizzes.length + pendingAssignments.length) > 0 && (
+                    <span className="ml-auto text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
+                      {pendingQuizzes.length + pendingAssignments.length}
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="divide-y divide-slate-100 p-0">
+                {/* Pending Quizzes */}
+                {pendingQuizzes.map((quiz) => (
+                  <Link
+                    key={quiz.id}
+                    href={`/student/courses/${quiz.courseId}?tab=quizzes`}
+                    className="block p-4 hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                        <HelpCircle className="w-4 h-4 text-emerald-700" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 truncate group-hover:text-emerald-700 transition-colors">{quiz.title}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-tighter">
+                          {quiz.questionCount} Question{quiz.questionCount !== 1 ? "s" : ""} · Quiz
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium shrink-0">Go →</span>
+                    </div>
+                  </Link>
+                ))}
+
+                {/* Pending Assignments */}
+                {pendingAssignments.map((asgn) => (
+                  <Link
+                    key={asgn.id}
+                    href={`/student/courses/${asgn.courseId}?tab=assignments`}
+                    className="block p-4 hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                        <ClipboardList className="w-4 h-4 text-amber-700" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 truncate group-hover:text-amber-700 transition-colors">{asgn.title}</p>
+                        <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-tighter">Assignment</p>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium shrink-0">Go →</span>
+                    </div>
+                  </Link>
+                ))}
+
+                {/* All caught up */}
+                {pendingQuizzes.length === 0 && pendingAssignments.length === 0 && (
+                  <div className="p-8 text-center text-xs text-slate-400">
+                    All caught up! No pending assessments.
+                  </div>
                 )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="divide-y divide-slate-100 p-0">
-              {/* Pending Quizzes */}
-              {pendingQuizzes.map((quiz) => (
-                <Link
-                  key={quiz.id}
-                  href={`/student/courses/${quiz.courseId}?tab=quizzes`}
-                  className="block p-4 hover:bg-slate-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                      <HelpCircle className="w-4 h-4 text-emerald-700" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 truncate group-hover:text-emerald-700 transition-colors">{quiz.title}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-tighter">
-                        {quiz.questionCount} Question{quiz.questionCount !== 1 ? "s" : ""} · Quiz
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-medium shrink-0">Go →</span>
-                  </div>
-                </Link>
-              ))}
-
-              {/* Pending Assignments */}
-              {pendingAssignments.map((asgn) => (
-                <Link
-                  key={asgn.id}
-                  href={`/student/courses/${asgn.courseId}?tab=assignments`}
-                  className="block p-4 hover:bg-slate-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                      <ClipboardList className="w-4 h-4 text-amber-700" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 truncate group-hover:text-amber-700 transition-colors">{asgn.title}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-tighter">Assignment</p>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-medium shrink-0">Go →</span>
-                  </div>
-                </Link>
-              ))}
-
-              {/* All caught up */}
-              {pendingQuizzes.length === 0 && pendingAssignments.length === 0 && (
-                <div className="p-8 text-center text-xs text-slate-400">
-                  All caught up! No pending assessments.
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </BorderGlow>
 
         </div>
       </main>

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/LogoutButton";
 import { ExpertiseEditor } from "@/components/ExpertiseEditor";
 import { StaggeredMenu } from "@/components/StaggeredMenu";
+import BorderGlow from "@/components/BorderGlow";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
@@ -126,62 +127,66 @@ export default async function InstructorProfile() {
         </div>
 
         {/* Profile Card */}
-        <Card className="border border-slate-200 shadow-sm bg-white overflow-hidden rounded-xl">
-          <div className="h-24 w-full bg-slate-800"></div>
-          <CardContent className="p-8 relative">
-            <div className="absolute -top-12 left-8">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-xl border-4 border-white shadow-md bg-slate-100 overflow-hidden">
-                  <img 
-                    src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user.name || 'Prof'}&backgroundColor=transparent`} 
-                    alt="Instructor Avatar"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1.5 rounded-lg shadow-sm border-2 border-white">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">{user.name}</h2>
-                <p className="text-slate-500">{user.email}</p>
-                <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mt-3">
-                  <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Campus Location</div>
-                  <div className="flex items-center gap-1.5"><Briefcase className="w-4 h-4" /> {org.name}</div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Button variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50">Edit Profile</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { label: "My Courses", value: courses.length.toString(), icon: PlayCircle },
-            { label: "Average Rating", value: avgRating !== null ? avgRating.toFixed(1) : "N/A", icon: Star, color: "text-amber-500" },
-            { label: "Total Students", value: totalStudents.toString(), icon: Users }
-          ].map((stat, i) => (
-            <Card key={i} className="border border-slate-200 shadow-sm bg-white hover:border-blue-200 transition-colors">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`p-2.5 rounded-lg bg-slate-50 border border-slate-100 ${stat.color || 'text-blue-600'}`}>
-                    <stat.icon className="w-5 h-5" />
+        <BorderGlow borderRadius={16} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
+          <Card className="border border-slate-200 shadow-sm bg-white overflow-hidden rounded-xl h-full">
+            <div className="h-24 w-full bg-slate-800"></div>
+            <CardContent className="p-8 relative">
+              <div className="absolute -top-12 left-8">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-xl border-4 border-white shadow-md bg-slate-100 overflow-hidden">
+                    <img 
+                      src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user.name || 'Prof'}&backgroundColor=transparent`} 
+                      alt="Instructor Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1.5 rounded-lg shadow-sm border-2 border-white">
+                    <CheckCircle2 className="w-4 h-4" />
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
-                  <p className="text-sm font-medium text-slate-500 mt-1">{stat.label}</p>
+                  <h2 className="text-2xl font-bold text-slate-900">{user.name}</h2>
+                  <p className="text-slate-500">{user.email}</p>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mt-3">
+                    <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Campus Location</div>
+                    <div className="flex items-center gap-1.5"><Briefcase className="w-4 h-4" /> {org.name}</div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50">Edit Profile</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </BorderGlow>
+
+          {/* KPI Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { label: "My Courses", value: courses.length.toString(), icon: PlayCircle },
+              { label: "Average Rating", value: avgRating !== null ? avgRating.toFixed(1) : "N/A", icon: Star, color: "text-amber-500" },
+              { label: "Total Students", value: totalStudents.toString(), icon: Users }
+            ].map((stat, i) => (
+              <BorderGlow key={i} borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
+                <Card className="border border-slate-200 shadow-sm bg-white hover:border-blue-200 transition-colors h-full">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`p-2.5 rounded-lg bg-slate-50 border border-slate-100 ${stat.color || 'text-blue-600'}`}>
+                        <stat.icon className="w-5 h-5" />
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
+                      <p className="text-sm font-medium text-slate-500 mt-1">{stat.label}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </BorderGlow>
+            ))}
+          </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           

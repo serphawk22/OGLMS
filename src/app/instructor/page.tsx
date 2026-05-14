@@ -12,6 +12,7 @@ import { LogoutButton } from "@/components/LogoutButton";
 import { PlusCircle, Upload, KeyRound, Building, Users, GraduationCap, BookOpen, UserMinus, Settings, FileText } from "lucide-react";
 
 import { StaggeredMenu } from "@/components/StaggeredMenu";
+import BorderGlow from "@/components/BorderGlow";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
@@ -176,57 +177,65 @@ export default async function InstructorDashboard() {
 
       <div className="max-w-5xl mx-auto p-8 space-y-8">
         
-        <div className="flex justify-between items-center bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-5">
-            <div className="bg-slate-900 p-4 rounded-2xl text-white shadow-xl shadow-slate-200">
-               <Building className="w-8 h-8"/>
-            </div>
-            <div>
-              <h1 className="text-3xl font-black tracking-tight">Instructor Workspace</h1>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">{org.name}</span>
-                <span className="text-[10px] bg-slate-100 px-3 py-1 rounded-full text-slate-700 font-black border border-slate-200">{membership.role}</span>
+        <BorderGlow borderRadius={16} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
+          <div className="flex justify-between items-center bg-white p-8 rounded-2xl border border-slate-200 shadow-sm h-full">
+            <div className="flex items-center gap-5">
+              <div className="bg-slate-900 p-4 rounded-2xl text-white shadow-xl shadow-slate-200">
+                 <Building className="w-8 h-8"/>
+              </div>
+              <div>
+                <h1 className="text-3xl font-black tracking-tight">Instructor Workspace</h1>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">{org.name}</span>
+                  <span className="text-[10px] bg-slate-100 px-3 py-1 rounded-full text-slate-700 font-black border border-slate-200">{membership.role}</span>
+                </div>
               </div>
             </div>
+            <div className="flex items-center gap-4 pr-16">
+              <Link href="/instructor/profile">
+                <Button variant="outline" className="rounded-xl border-slate-200 hover:bg-slate-50 font-bold">My Profile</Button>
+              </Link>
+              <LogoutButton/>
+            </div>
           </div>
-          <div className="flex items-center gap-4 pr-16">
-            <Link href="/instructor/profile">
-              <Button variant="outline" className="rounded-xl border-slate-200 hover:bg-slate-50 font-bold">My Profile</Button>
-            </Link>
-            <LogoutButton/>
-          </div>
-        </div>
+        </BorderGlow>
 
 
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="border-slate-200 shadow-none">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Total Students</CardTitle>
-              <GraduationCap className="h-4 w-4 text-slate-400"/>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{enrolledStudentCount}</div>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200 shadow-none">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Active Instructors</CardTitle>
-              <Users className="h-4 w-4 text-slate-400"/>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{instructorCount + (isFounder ? 1 : 0)}</div>
-            </CardContent>
-          </Card>
-          <Card className="border-slate-200 shadow-none">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">Workspace Courses</CardTitle>
-              <BookOpen className="h-4 w-4 text-slate-400"/>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{courses.length}</div>
-            </CardContent>
-          </Card>
+          <BorderGlow borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
+            <Card className="border-slate-200 shadow-none h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Total Students</CardTitle>
+                <GraduationCap className="h-4 w-4 text-slate-400"/>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{enrolledStudentCount}</div>
+              </CardContent>
+            </Card>
+          </BorderGlow>
+          <BorderGlow borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
+            <Card className="border-slate-200 shadow-none h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Active Instructors</CardTitle>
+                <Users className="h-4 w-4 text-slate-400"/>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{instructorCount + (isFounder ? 1 : 0)}</div>
+              </CardContent>
+            </Card>
+          </BorderGlow>
+          <BorderGlow borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
+            <Card className="border-slate-200 shadow-none h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500">Workspace Courses</CardTitle>
+                <BookOpen className="h-4 w-4 text-slate-400"/>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{courses.length}</div>
+              </CardContent>
+            </Card>
+          </BorderGlow>
         </div>
 
         
@@ -237,41 +246,45 @@ export default async function InstructorDashboard() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            <Card className="border-dashed border-2 border-slate-300 bg-slate-50 shadow-none flex flex-col justify-center">
-              <CardContent className="pt-6">
-                <form action={createCourse} className="space-y-4">
-                  <input type="hidden" name="orgId" value={org.id} />
-                  <input type="hidden" name="creatorId" value={user.id} />
-                  <div className="space-y-2">
-                    <Label htmlFor="title" className="text-slate-600">Quick Draft Course</Label>
-                    <Input id="title" name="title" required placeholder="Course Title..." className="bg-white"/>
-                  </div>
-                  <Button type="submit" className="w-full bg-slate-900 text-white hover:bg-slate-800">
-                    <PlusCircle className="w-4 h-4 mr-2"/> Initialize Setup
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            <BorderGlow borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
+              <Card className="border-dashed border-2 border-slate-300 bg-slate-50 shadow-none flex flex-col justify-center h-full">
+                <CardContent className="pt-6">
+                  <form action={createCourse} className="space-y-4">
+                    <input type="hidden" name="orgId" value={org.id} />
+                    <input type="hidden" name="creatorId" value={user.id} />
+                    <div className="space-y-2">
+                      <Label htmlFor="title" className="text-slate-600">Quick Draft Course</Label>
+                      <Input id="title" name="title" required placeholder="Course Title..." className="bg-white"/>
+                    </div>
+                    <Button type="submit" className="w-full bg-slate-900 text-white hover:bg-slate-800">
+                      <PlusCircle className="w-4 h-4 mr-2"/> Initialize Setup
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </BorderGlow>
 
             
             {courses.map(course => (
-              <Card key={course.id} className="border-slate-200 shadow-sm flex flex-col hover:border-blue-300 transition-colors">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg leading-tight">{course.title}</CardTitle>
-                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${course.published ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {course.published ? 'PUBLISHED' : 'DRAFT'}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="mt-auto pt-4">
-                  <Link href={`/instructor/courses/${course.id}`}>
-                    <Button variant="outline" className="w-full text-blue-600 border-blue-200 hover:bg-blue-50">
-                      <Settings className="w-4 h-4 mr-2"/> Manage Content
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
+              <BorderGlow key={course.id} borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
+                <Card className="border-slate-200 shadow-sm flex flex-col hover:border-blue-300 transition-colors h-full">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg leading-tight">{course.title}</CardTitle>
+                      <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${course.published ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {course.published ? 'PUBLISHED' : 'DRAFT'}
+                      </span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="mt-auto pt-4">
+                    <Link href={`/instructor/courses/${course.id}`}>
+                      <Button variant="outline" className="w-full text-blue-600 border-blue-200 hover:bg-blue-50">
+                        <Settings className="w-4 h-4 mr-2"/> Manage Content
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </BorderGlow>
             ))}
           </div>
         </div>

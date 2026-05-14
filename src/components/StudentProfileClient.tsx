@@ -9,6 +9,7 @@ import {
   CheckCircle2, Video, FileText, Award, AlertCircle, RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
+import BorderGlow from "@/components/BorderGlow";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 interface Achievement {
@@ -235,75 +236,77 @@ export function StudentProfileClient({ initialOrgName, initialUserName }: {
         <div className="md:w-1/3 space-y-6">
 
           {/* Profile Card */}
-          <Card className="border border-slate-200 shadow-sm rounded-xl overflow-hidden bg-white">
-            <CardContent className="p-8 flex flex-col items-center text-center">
+          <BorderGlow borderRadius={16} backgroundColor="white" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.5}>
+            <Card className="border border-slate-200 shadow-sm rounded-xl overflow-hidden bg-white h-full">
+              <CardContent className="p-8 flex flex-col items-center text-center">
 
-              {/* Avatar */}
-              <div className="relative group cursor-pointer mb-6">
-                <div className="w-32 h-32 rounded-full ring-4 ring-slate-50 shadow-md overflow-hidden bg-slate-100">
-                  <img
-                    src={`https://api.dicebear.com/9.x/micah/svg?seed=${encodeURIComponent(user.avatarSeed)}&backgroundColor=transparent`}
-                    alt="Student Avatar"
-                    className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-110"
-                  />
+                {/* Avatar */}
+                <div className="relative group cursor-pointer mb-6">
+                  <div className="w-32 h-32 rounded-full ring-4 ring-slate-50 shadow-md overflow-hidden bg-slate-100">
+                    <img
+                      src={`https://api.dicebear.com/9.x/micah/svg?seed=${encodeURIComponent(user.avatarSeed)}&backgroundColor=transparent`}
+                      alt="Student Avatar"
+                      className="w-full h-full object-cover transform transition-transform duration-500 group-hover:scale-110"
+                    />
+                  </div>
+                  <div className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-md border-2 border-white transform transition-transform group-hover:scale-110">
+                    <Edit className="w-4 h-4" />
+                  </div>
                 </div>
-                <div className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-md border-2 border-white transform transition-transform group-hover:scale-110">
-                  <Edit className="w-4 h-4" />
+
+                <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">{user.name}</h1>
+                <p className="text-slate-500 text-sm mt-1 mb-4">{user.email}</p>
+
+                <p className="text-blue-600 font-medium text-sm mb-4 flex items-center justify-center gap-1.5 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
+                  <GraduationCap className="w-4 h-4" /> Enrolled Student
+                </p>
+
+                <div className="flex items-center gap-2 text-slate-500 text-sm mb-4">
+                  <Building className="w-4 h-4" /> {org.name}
                 </div>
-              </div>
 
-              <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">{user.name}</h1>
-              <p className="text-slate-500 text-sm mt-1 mb-4">{user.email}</p>
-
-              <p className="text-blue-600 font-medium text-sm mb-4 flex items-center justify-center gap-1.5 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
-                <GraduationCap className="w-4 h-4" /> Enrolled Student
-              </p>
-
-              <div className="flex items-center gap-2 text-slate-500 text-sm mb-4">
-                <Building className="w-4 h-4" /> {org.name}
-              </div>
-
-
-
-              {/* Level / Rank */}
-              <div className="w-full grid grid-cols-2 gap-3 mt-4 mb-6">
-                <div className="bg-[#f8f9fa] rounded-lg p-4 text-center border border-slate-200">
-                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Level</p>
-                  <p className="text-xl font-black text-slate-800">{stats.level}</p>
+                {/* Level / Rank */}
+                <div className="w-full grid grid-cols-2 gap-3 mt-4 mb-6">
+                  <div className="bg-[#f8f9fa] rounded-lg p-4 text-center border border-slate-200">
+                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Level</p>
+                    <p className="text-xl font-black text-slate-800">{stats.level}</p>
+                  </div>
+                  <div className="bg-[#f8f9fa] rounded-lg p-4 text-center border border-slate-200">
+                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Rank</p>
+                    <p className={`text-xl font-black ${rankColor(stats.rank)}`}>{stats.rank}</p>
+                  </div>
                 </div>
-                <div className="bg-[#f8f9fa] rounded-lg p-4 text-center border border-slate-200">
-                  <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Rank</p>
-                  <p className={`text-xl font-black ${rankColor(stats.rank)}`}>{stats.rank}</p>
-                </div>
-              </div>
 
-              <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white shadow-sm">
-                <Settings className="w-4 h-4 mr-2" /> Account Settings
-              </Button>
-            </CardContent>
-          </Card>
+                <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white shadow-sm">
+                  <Settings className="w-4 h-4 mr-2" /> Account Settings
+                </Button>
+              </CardContent>
+            </Card>
+          </BorderGlow>
 
           {/* Streak Card */}
-          <Card className="border border-slate-200 shadow-sm rounded-xl bg-white">
-            <CardContent className="p-6">
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <Flame className="w-5 h-5 text-orange-500" /> Current Streak
-              </h3>
-              <div className="flex items-center gap-4 bg-orange-50/50 p-4 rounded-lg border border-orange-100">
-                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
-                  <Flame className="w-6 h-6 text-orange-500" />
+          <BorderGlow borderRadius={12} backgroundColor="white" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.5}>
+            <Card className="border border-slate-200 shadow-sm rounded-xl bg-white h-full">
+              <CardContent className="p-6">
+                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-orange-500" /> Current Streak
+                </h3>
+                <div className="flex items-center gap-4 bg-orange-50/50 p-4 rounded-lg border border-orange-100">
+                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                    <Flame className="w-6 h-6 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-slate-800">
+                      {stats.streak} Day{stats.streak !== 1 ? "s" : ""}
+                    </p>
+                    <p className="text-xs font-medium text-orange-600">
+                      {streakMessage(stats.streak)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-slate-800">
-                    {stats.streak} Day{stats.streak !== 1 ? "s" : ""}
-                  </p>
-                  <p className="text-xs font-medium text-orange-600">
-                    {streakMessage(stats.streak)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </BorderGlow>
 
         </div>
 
@@ -330,19 +333,20 @@ export function StudentProfileClient({ initialOrgName, initialUserName }: {
                 bg: "bg-indigo-50",
               },
             ].map((stat, i) => (
-              <Card
-                key={i}
-                className="border border-slate-200 shadow-sm rounded-xl bg-white hover:-translate-y-1 transition-transform duration-300"
-              >
-                <CardContent className="p-6">
-                  <div className={`w-12 h-12 ${stat.bg} rounded-lg flex items-center justify-center mb-4`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
-                  <p className="text-3xl font-black text-slate-800">{stat.value}</p>
-                  <p className="text-sm font-semibold text-slate-500 mt-1">{stat.label}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{stat.sub}</p>
-                </CardContent>
-              </Card>
+              <BorderGlow key={i} borderRadius={12} backgroundColor="white" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.5}>
+                <Card
+                  className="border border-slate-200 shadow-sm rounded-xl bg-white hover:-translate-y-1 transition-transform duration-300 h-full"
+                >
+                  <CardContent className="p-6">
+                    <div className={`w-12 h-12 ${stat.bg} rounded-lg flex items-center justify-center mb-4`}>
+                      <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                    </div>
+                    <p className="text-3xl font-black text-slate-800">{stat.value}</p>
+                    <p className="text-sm font-semibold text-slate-500 mt-1">{stat.label}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{stat.sub}</p>
+                  </CardContent>
+                </Card>
+              </BorderGlow>
             ))}
           </div>
 
