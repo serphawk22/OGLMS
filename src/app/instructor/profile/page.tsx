@@ -8,8 +8,6 @@ import { ArrowLeft, Users, Star, PlayCircle, Briefcase, MapPin, CheckCircle2, Bu
 import Link from "next/link";
 import { LogoutButton } from "@/components/LogoutButton";
 import { ExpertiseEditor } from "@/components/ExpertiseEditor";
-import { StaggeredMenu } from "@/components/StaggeredMenu";
-import BorderGlow from "@/components/BorderGlow";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
@@ -88,105 +86,73 @@ export default async function InstructorProfile() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-slate-900 font-sans selection:bg-violet-100">
-      
-      <StaggeredMenu
-        isFixed={true}
-        position="right"
-        items={menuItems}
-        socialItems={socialItems}
-        displaySocials={true}
-        displayItemNumbering={true}
-        menuButtonColor="#0f172a"
-        openMenuButtonColor="#0f172a"
-        changeMenuColorOnOpen={true}
-        colors={['#8b5cf6', '#6d28d9']}
-        accentColor="#8b5cf6"
-      />
-
-      <div className="p-8 max-w-5xl mx-auto space-y-8">
+      <div className="container-page space-y-8">
         
-        {/* Standard Instructor Header (matches dashboard) */}
-        <div className="flex justify-between items-center bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <Link href="/instructor">
-                <Button variant="ghost" size="sm" className="h-8 text-slate-500 hover:text-slate-900 px-2 -ml-2">
-                  <ArrowLeft className="w-4 h-4 mr-1" /> Back
-                </Button>
-              </Link>
-              <h1 className="text-3xl font-bold tracking-tight">Instructor Profile</h1>
-            </div>
-            <div className="flex items-center gap-2 mt-2 text-slate-600">
-              <Building className="w-4 h-4"/>
-              <span className="font-medium">{org.name}</span>
-              <span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-700 font-semibold">{membership.role}</span>
-            </div>
+        {/* Navigation Header */}
+        <div className="flex items-center justify-between">
+          <Link href="/instructor">
+            <Button variant="ghost" className="text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 px-0">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+            </Button>
+          </Link>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-zinc-800">Instructor Profile</h2>
           </div>
-          <LogoutButton/>
         </div>
 
         {/* Profile Card */}
-        <BorderGlow borderRadius={16} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
-          <Card className="border border-slate-200 shadow-sm bg-white overflow-hidden rounded-xl h-full">
-            <div className="h-24 w-full bg-slate-800"></div>
-            <CardContent className="p-8 relative">
-              <div className="absolute -top-12 left-8">
-                <div className="relative">
-                  <div className="w-24 h-24 rounded-xl border-4 border-white shadow-md bg-slate-100 overflow-hidden">
-                    <img 
-                      src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user.name || 'Prof'}&backgroundColor=transparent`} 
-                      alt="Instructor Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1.5 rounded-lg shadow-sm border-2 border-white">
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
+        <Card className="border border-zinc-200 shadow-sm bg-white overflow-hidden rounded-xl h-full">
+          <div className="h-24 w-full bg-zinc-900"></div>
+          <CardContent className="p-8 relative">
+            <div className="absolute -top-12 left-8">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-xl border-4 border-white shadow-md bg-zinc-100 overflow-hidden">
+                  <img 
+                    src={`https://api.dicebear.com/9.x/notionists/svg?seed=${user.name || 'Prof'}&backgroundColor=transparent`} 
+                    alt="Instructor Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="absolute -bottom-2 -right-2 bg-zinc-900 text-white p-1.5 rounded-lg shadow-sm border-2 border-white">
+                  <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
+            </div>
 
-              <div className="mt-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">{user.name}</h2>
-                  <p className="text-slate-500">{user.email}</p>
-                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mt-3">
-                    <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Campus Location</div>
-                    <div className="flex items-center gap-1.5"><Briefcase className="w-4 h-4" /> {org.name}</div>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" className="border-slate-200 text-slate-700 hover:bg-slate-50">Edit Profile</Button>
+            <div className="mt-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-zinc-900">{user.name}</h2>
+                <p className="text-zinc-500 text-sm">{user.email}</p>
+                <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-zinc-500 mt-3">
+                  <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Campus Location</div>
+                  <div className="flex items-center gap-1.5"><Briefcase className="w-4 h-4" /> {org.name}</div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </BorderGlow>
+              <div className="flex gap-3">
+                <Button variant="outline" className="border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-bold text-xs uppercase tracking-wider">Edit Profile</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* KPI Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { label: "My Courses", value: courses.length.toString(), icon: PlayCircle },
-              { label: "Average Rating", value: avgRating !== null ? avgRating.toFixed(1) : "N/A", icon: Star, color: "text-amber-500" },
-              { label: "Total Students", value: totalStudents.toString(), icon: Users }
-            ].map((stat, i) => (
-              <BorderGlow key={i} borderRadius={12} backgroundColor="white" colors={['#8b5cf6', '#6d28d9', '#a855f7']} glowIntensity={0.5}>
-                <Card className="border border-slate-200 shadow-sm bg-white hover:border-blue-200 transition-colors h-full">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`p-2.5 rounded-lg bg-slate-50 border border-slate-100 ${stat.color || 'text-blue-600'}`}>
-                        <stat.icon className="w-5 h-5" />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-3xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
-                      <p className="text-sm font-medium text-slate-500 mt-1">{stat.label}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </BorderGlow>
-            ))}
-          </div>
+        {/* KPI Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { label: "My Courses", value: courses.length.toString(), icon: PlayCircle },
+            { label: "Average Rating", value: avgRating !== null ? avgRating.toFixed(1) : "N/A", icon: Star, color: "text-amber-500" },
+            { label: "Total Students", value: totalStudents.toString(), icon: Users }
+          ].map((stat, i) => (
+            <div key={i} className="stat-card">
+              <div className="flex items-start justify-between mb-4">
+                <div className={`p-2 rounded-lg bg-zinc-50 border border-zinc-100 ${stat.color || 'text-zinc-600'}`}>
+                  <stat.icon className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="stat-card__value">{stat.value}</p>
+              <p className="stat-card__label !mb-0 mt-1">{stat.label}</p>
+            </div>
+          ))}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           

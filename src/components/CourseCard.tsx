@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { GraduationCap, ChevronRight, Clock, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import BorderGlow from "@/components/BorderGlow";
 
 interface Course {
   id: string;
@@ -42,50 +41,50 @@ export function CourseCard({ course }: { course: Course }) {
   };
 
   return (
-    <BorderGlow borderRadius={12} backgroundColor="white" colors={['#3b82f6', '#1d4ed8', '#60a5fa']} glowIntensity={0.5}>
-      <Card className="border-slate-200 shadow-sm hover:border-blue-300 transition-all cursor-pointer group h-full">
-        <CardContent className="p-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="bg-slate-100 p-3 rounded-lg group-hover:bg-blue-50 transition-colors">
-              <GraduationCap className="w-6 h-6 text-slate-600 group-hover:text-blue-600" />
-            </div>
-            <div>
-              <h4 className="font-bold text-slate-900">{course.title}</h4>
-              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {course.orgName}
+    <Card className="border-zinc-200 shadow-sm hover:border-zinc-300 transition-all cursor-pointer group h-full">
+      <CardContent className="p-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="bg-zinc-100 p-3 rounded-lg group-hover:bg-zinc-200 transition-colors">
+            <GraduationCap className="w-6 h-6 text-zinc-600 group-hover:text-zinc-900" />
+          </div>
+          <div>
+            <h4 className="font-bold text-zinc-900">{course.title}</h4>
+            <div className="flex items-center gap-3 mt-1 text-xs text-zinc-500">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {course.orgName}
+              </span>
+              {enrolled && (
+                <span className="status-badge status-badge--success py-0 px-2">
+                  Enrolled
                 </span>
-                {enrolled && (
-                  <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                    <CheckCircle2 className="w-3 h-3" /> Enrolled
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
+        </div>
 
-          {enrolled ? (
-            <Link href={`/student/courses/${course.id}`}>
-              <Button variant="ghost" className="group-hover:translate-x-1 transition-transform">
-                Continue <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </Link>
-          ) : (
-            <Button
-              onClick={handleEnroll}
-              disabled={enrolling}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {enrolling ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enrolling…</>
-              ) : (
-                "Enroll"
-              )}
+        {enrolled ? (
+          <Link href={`/student/courses/${course.id}`}>
+            <Button variant="ghost" className="text-zinc-600 hover:text-zinc-900 group-hover:translate-x-1 transition-transform font-bold text-xs uppercase tracking-wider">
+              Continue <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
-          )}
-        </CardContent>
-      </Card>
-    </BorderGlow>
+          </Link>
+        ) : (
+          <Button
+            onClick={handleEnroll}
+            disabled={enrolling}
+            className="bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-xs uppercase tracking-wider px-6"
+          >
+            {enrolling ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enrolling…</>
+            ) : (
+              "Enroll Now"
+            )}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
   );
 }

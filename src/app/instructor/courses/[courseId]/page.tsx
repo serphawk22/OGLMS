@@ -17,7 +17,7 @@ import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 import { MaterialAnalyticsButton } from "@/components/MaterialAnalyticsButton";
 import { InstructorFeedbackTab } from "@/components/admin/InstructorFeedbackTab";
 
-import { StaggeredMenu } from "@/components/StaggeredMenu";
+
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 
 // --- SERVER ACTIONS ---
@@ -404,50 +404,36 @@ export default async function CourseBuilderPage({
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
-      
-      <StaggeredMenu
-        isFixed={true}
-        position="right"
-        items={menuItems}
-        socialItems={socialItems}
-        displaySocials={true}
-        displayItemNumbering={true}
-        menuButtonColor="#0f172a"
-        openMenuButtonColor="#0f172a"
-        changeMenuColorOnOpen={true}
-        colors={['#8b5cf6', '#6d28d9']}
-        accentColor="#8b5cf6"
-      />
-
-      <div className="max-w-6xl mx-auto p-8 space-y-6">
-        
+    <div className="container-page space-y-8">
+      {/* Course Title Header */}
+      <div className="flex items-center justify-between">
         <Link href="/instructor">
-          <Button variant="ghost" className="text-slate-500 hover:text-slate-900 mb-4 px-0">
+          <Button variant="ghost" className="text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 px-0">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Workspace
           </Button>
         </Link>
-
-
-        {/* Header Section */}
-        <div className="flex justify-between items-end border-b border-slate-200 pb-6">
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-bold tracking-tight">{course.title}</h1>
-            <span className={`text-xs px-2 py-1 rounded-full font-bold ${course.published ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-              {course.published ? 'PUBLISHED' : 'DRAFT'}
-            </span>
-          </div>
-          <div className="flex gap-3">
-            <Link href={`/student/courses/${course.id}`}><Button variant="outline" className="bg-white">Preview as Student</Button></Link>
-            <form action={togglePublish}>
-              <input type="hidden" name="courseId" value={course.id} />
-              <input type="hidden" name="isPublished" value={course.published.toString()} />
-              <Button type="submit" className={course.published ? "bg-amber-600 hover:bg-amber-700 text-white" : "bg-slate-900 text-white hover:bg-slate-800"}>
-                {course.published ? "Unpublish" : "Publish"}
-              </Button>
-            </form>
-          </div>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold text-zinc-900">{course.title}</h1>
+          <span className={`status-badge ${course.published ? 'status-badge--success' : 'status-badge--warning'}`}>
+            {course.published ? 'PUBLISHED' : 'DRAFT'}
+          </span>
         </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto p-8 space-y-6">
+        
+      <div className="flex justify-end gap-3 pb-6 border-b border-zinc-200">
+        <Link href={`/student/courses/${course.id}`}>
+          <Button variant="outline" className="font-bold text-xs uppercase tracking-wider">Preview</Button>
+        </Link>
+        <form action={togglePublish}>
+          <input type="hidden" name="courseId" value={course.id} />
+          <input type="hidden" name="isPublished" value={course.published.toString()} />
+          <Button type="submit" className={course.published ? "bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase tracking-wider" : "bg-zinc-900 text-white hover:bg-zinc-800 font-bold text-xs uppercase tracking-wider"}>
+            {course.published ? "Unpublish" : "Publish"}
+          </Button>
+        </form>
+      </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-4">
           
@@ -516,7 +502,7 @@ export default async function CourseBuilderPage({
                                 session.status === "COMPLETED" ? "bg-slate-100 text-slate-500" :
                                 "bg-blue-100 text-blue-700"
                               }`}>
-                                {session.status === "ONGOING" ? "● LIVE" : session.status}
+                                {session.status === "ONGOING" ? "LIVE" : session.status}
                               </span>
                               <span className="text-sm font-medium truncate">{session.title}</span>
                               <span className="text-xs text-slate-400 shrink-0">

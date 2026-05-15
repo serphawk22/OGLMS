@@ -10,8 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { LogoutButton } from "@/components/LogoutButton";
 import { PlusCircle, KeyRound, Building, UserMinus, Settings } from "lucide-react";
-import { StaggeredMenu } from "@/components/StaggeredMenu";
-import BorderGlow from "@/components/BorderGlow";
 import { AdminStatCards } from "@/components/admin/AdminStatCards";
 import { AdminInstructorTable, AdminCourseTable } from "@/components/admin/AdminAnalyticsTables";
 import { AdminStudentSection } from "@/components/admin/AdminStudentSection";
@@ -190,164 +188,96 @@ export default async function WorkspaceDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
-      <StaggeredMenu
-        isFixed={true}
-        position="right"
-        items={menuItems}
-        socialItems={socialItems}
-        displaySocials={true}
-        displayItemNumbering={true}
-        menuButtonColor="#0f172a"
-        openMenuButtonColor="#0f172a"
-        changeMenuColorOnOpen={true}
-        colors={["#8b5cf6", "#6d28d9"]}
-        accentColor="#8b5cf6"
-      />
+    <div className="container-page space-y-8">
+      {/* ── Admin Analytics Dashboard ───────────────────────────────────── */}
+      {isFounder && (
+        <div id="admin-analytics" className="space-y-6">
+          <div className="section-divider">
+            <span>Organization Overview</span>
+          </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+          {/* Top 5 stat cards */}
+          <AdminStatCards stats={adminStats} orgId={org.id} />
 
-        {/* ── Header ─────────────────────────────────────────────────────── */}
-        <BorderGlow borderRadius={16} backgroundColor="white" colors={["#8b5cf6","#6d28d9","#a855f7"]} glowIntensity={0.5}>
-          <div className="flex justify-between items-center bg-white px-8 py-6 rounded-2xl border border-slate-200 shadow-sm h-full">
-            <div className="flex items-center gap-4">
-              <div className="bg-slate-900 p-3.5 rounded-2xl text-white shadow-lg shadow-slate-200">
-                <Building className="w-7 h-7"/>
-              </div>
-              <div>
-                <h1 className="text-2xl font-black tracking-tight text-slate-900">
-                  {isFounder ? "Admin Dashboard" : "Instructor Workspace"}
-                </h1>
-                <div className="flex items-center gap-2.5 mt-1.5">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{org.name}</span>
-                  <span className="text-[10px] bg-violet-100 px-2.5 py-0.5 rounded-full text-violet-700 font-black border border-violet-200">{membership.role}</span>
+          {/* Instructor + Course analytics tables */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <AdminInstructorTable rows={instructorRows} />
+            <AdminCourseTable    rows={courseRows}     />
+          </div>
+
+          {/* Student analytics — full width */}
+          <AdminStudentSection data={studentData} />
+
+          <div className="section-divider">
+            <span>Admin Comments</span>
+          </div>
+          <AdminCommentsPanel
+            orgId={org.id}
+            courses={courses.map((c) => ({ id: c.id, title: c.title }))}
+          />
+        </div>
+      )}
+
+      {/* ── Instructor personal stats (non-admin view) ──────────────────── */}
+      {!isFounder && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="stat-card">
+            <p className="stat-card__label">My Students</p>
+            <p className="stat-card__value">{myStudentsCount}</p>
+            <p className="stat-card__sub">enrolled in your courses</p>
+          </div>
+          <div className="stat-card">
+            <p className="stat-card__label">My Courses</p>
+            <p className="stat-card__value">{myCoursesCount}</p>
+            <p className="stat-card__sub">created by you</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Course Library ──────────────────────────────────────────────── */}
+      <div className="space-y-6" id="courses">
+        <div className="section-divider">
+          <span>Course Library</span>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="border-dashed border-2 border-zinc-200 bg-zinc-50/50 shadow-none flex flex-col justify-center h-full">
+            <CardContent className="pt-6">
+              <form action={createCourse} className="space-y-4">
+                <input type="hidden" name="orgId"     value={org.id}  />
+                <input type="hidden" name="creatorId" value={user.id} />
+                <div className="space-y-2">
+                  <Label htmlFor="title" className="text-zinc-600 font-semibold text-xs uppercase tracking-wider">New Course</Label>
+                  <Input id="title" name="title" required placeholder="Enter course title..." className="bg-white border-zinc-200"/>
                 </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 pr-16">
-              <Link href="/instructor/profile">
-                <Button variant="outline" className="rounded-xl border-slate-200 hover:bg-slate-50 font-semibold text-sm">My Profile</Button>
-              </Link>
-              <LogoutButton/>
-            </div>
-          </div>
-        </BorderGlow>
+                <Button type="submit" className="w-full bg-zinc-900 text-white hover:bg-zinc-800">
+                  <PlusCircle className="w-4 h-4 mr-2"/> Create Course
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
 
-        {/* ── Admin Analytics Dashboard ───────────────────────────────────── */}
-        {isFounder && (
-          <div id="admin-analytics" className="space-y-5">
-
-            {/* Section label */}
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200"/>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Organization Overview</span>
-              <div className="h-px flex-1 bg-slate-200"/>
-            </div>
-
-            {/* Top 5 stat cards */}
-            <AdminStatCards stats={adminStats} orgId={org.id} />
-
-            {/* Instructor + Course analytics tables */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <AdminInstructorTable rows={instructorRows} />
-              <AdminCourseTable    rows={courseRows}     />
-            </div>
-
-            {/* Student analytics — full width */}
-            <AdminStudentSection data={studentData} />
-
-            {/* Admin Comments — course & student level */}
-            <div className="flex items-center gap-3 pt-1">
-              <div className="h-px flex-1 bg-slate-200"/>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Admin Comments</span>
-              <div className="h-px flex-1 bg-slate-200"/>
-            </div>
-            <AdminCommentsPanel
-              orgId={org.id}
-              courses={courses.map((c) => ({ id: c.id, title: c.title }))}
-            />
-          </div>
-        )}
-
-        {/* ── Instructor personal stats (non-admin view) ──────────────────── */}
-        {!isFounder && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <BorderGlow borderRadius={12} backgroundColor="white" colors={["#8b5cf6","#6d28d9","#a855f7"]} glowIntensity={0.5}>
-              <Card className="border-slate-200 shadow-none h-full">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">My Students</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{myStudentsCount}</div>
-                  <p className="text-xs text-slate-400 mt-1">enrolled in your courses</p>
-                </CardContent>
-              </Card>
-            </BorderGlow>
-            <BorderGlow borderRadius={12} backgroundColor="white" colors={["#8b5cf6","#6d28d9","#a855f7"]} glowIntensity={0.5}>
-              <Card className="border-slate-200 shadow-none h-full">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">My Courses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{myCoursesCount}</div>
-                  <p className="text-xs text-slate-400 mt-1">created by you</p>
-                </CardContent>
-              </Card>
-            </BorderGlow>
-          </div>
-        )}
-
-        {/* ── Divider ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 pt-2">
-          <div className="h-px flex-1 bg-slate-200"/>
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Course Library</span>
-          <div className="h-px flex-1 bg-slate-200"/>
+          {courses.map((course) => (
+            <Card key={course.id} className="border-zinc-200 shadow-sm flex flex-col hover:border-zinc-300 transition-all h-full group">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start gap-2">
+                  <CardTitle className="text-base leading-tight font-bold text-zinc-800 group-hover:text-zinc-900 transition-colors">{course.title}</CardTitle>
+                  <span className={`status-badge ${course.published ? "status-badge--success" : "status-badge--warning"}`}>
+                    {course.published ? "Published" : "Draft"}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="mt-auto pt-4">
+                <Link href={`/instructor/courses/${course.id}`}>
+                  <Button variant="outline" className="w-full text-zinc-700 border-zinc-200 hover:bg-zinc-50 font-semibold text-sm">
+                    <Settings className="w-4 h-4 mr-2"/> Manage Content
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-
-        {/* ── Course Library ──────────────────────────────────────────────── */}
-        <div className="space-y-4" id="courses">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <BorderGlow borderRadius={12} backgroundColor="white" colors={["#8b5cf6","#6d28d9","#a855f7"]} glowIntensity={0.5}>
-              <Card className="border-dashed border-2 border-slate-300 bg-slate-50 shadow-none flex flex-col justify-center h-full">
-                <CardContent className="pt-6">
-                  <form action={createCourse} className="space-y-4">
-                    <input type="hidden" name="orgId"     value={org.id}  />
-                    <input type="hidden" name="creatorId" value={user.id} />
-                    <div className="space-y-2">
-                      <Label htmlFor="title" className="text-slate-600 font-semibold text-sm">New Course</Label>
-                      <Input id="title" name="title" required placeholder="Course title..." className="bg-white"/>
-                    </div>
-                    <Button type="submit" className="w-full bg-slate-900 text-white hover:bg-slate-800">
-                      <PlusCircle className="w-4 h-4 mr-2"/> Initialize Setup
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </BorderGlow>
-
-            {courses.map((course) => (
-              <BorderGlow key={course.id} borderRadius={12} backgroundColor="white" colors={["#8b5cf6","#6d28d9","#a855f7"]} glowIntensity={0.5}>
-                <Card className="border-slate-200 shadow-sm flex flex-col hover:border-violet-300 transition-colors h-full">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <CardTitle className="text-base leading-tight font-bold text-slate-800">{course.title}</CardTitle>
-                      <span className={`text-[10px] px-2 py-1 rounded-full font-bold whitespace-nowrap ${course.published ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                        {course.published ? "PUBLISHED" : "DRAFT"}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="mt-auto pt-4">
-                    <Link href={`/instructor/courses/${course.id}`}>
-                      <Button variant="outline" className="w-full text-violet-600 border-violet-200 hover:bg-violet-50 font-semibold">
-                        <Settings className="w-4 h-4 mr-2"/> Manage Content
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              </BorderGlow>
-            ))}
-          </div>
-        </div>
+      </div>
 
         {/* ── Workspace Management ─────────────────────────────────────────── */}
         {isFounder && (

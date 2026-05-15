@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, PlayCircle, FileText, CheckCircle, ExternalLink,
-  BookOpen, ClipboardList, BookMarked, LayoutList, HelpCircle, Radio, Video, Link2, Star, MonitorPlay
+  BookOpen, ClipboardList, BookMarked, LayoutList, HelpCircle, Radio, Video, Link2, Star, MonitorPlay, MessageSquare
 } from "lucide-react";
 import { CourseChatbot } from "@/components/CourseChatbot";
 import { AssignmentSubmitForm } from "@/components/AssignmentSubmitForm";
@@ -18,7 +18,7 @@ import { StudentFeedbackTab } from "@/components/admin/StudentFeedbackTab";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
-import { StaggeredMenu } from "@/components/StaggeredMenu";
+
 
 export default async function StudentCourseView({ 
   params,
@@ -148,35 +148,17 @@ export default async function StudentCourseView({
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
-      
-      <StaggeredMenu
-        isFixed={true}
-        position="right"
-        items={menuItems}
-        socialItems={socialItems}
-        displaySocials={true}
-        displayItemNumbering={true}
-        menuButtonColor="#ffffff"
-        openMenuButtonColor="#0f172a"
-        changeMenuColorOnOpen={true}
-        colors={['#3b82f6', '#1d4ed8']}
-        accentColor="#3b82f6"
-      />
-
-      {/* Top Navbar */}
-      <div className="bg-slate-900 text-white p-4 flex items-center justify-between shadow-md sticky top-0 z-10">
+    <div className="container-page space-y-8">
+      {/* Course Title Header */}
+      <div className="flex items-center justify-between">
+        <Link href="/student">
+          <Button variant="ghost" className="text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 px-0">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+          </Button>
+        </Link>
         <div className="flex items-center gap-4">
-          <Link href="/student">
-            <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
-            </Button>
-          </Link>
-          <div className="h-6 w-px bg-slate-700" />
-          <h1 className="text-lg font-bold">{course.title}</h1>
-        </div>
-        <div className="flex items-center gap-4 pr-16">
-          <div className="text-xs font-medium bg-blue-600 px-3 py-1.5 rounded-full">Student View</div>
+          <h1 className="text-2xl font-bold text-zinc-900">{course.title}</h1>
+          <div className="status-badge status-badge--info">Student View</div>
         </div>
       </div>
 
@@ -219,8 +201,8 @@ export default async function StudentCourseView({
               </Button>
             </Link>
             <Link href={`?tab=feedback`}>
-              <Button variant={tab === "feedback" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "feedback" ? "bg-violet-100 text-violet-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
-                💬 Feedback
+              <Button variant={tab === "feedback" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "feedback" ? "bg-violet-100 text-violet-700 font-bold" : "text-zinc-600 hover:bg-zinc-100"}`}>
+                <MessageSquare className="w-4 h-4 mr-3" /> Feedback
               </Button>
             </Link>
           </div>
@@ -314,7 +296,7 @@ export default async function StudentCourseView({
                                           isScheduled ? "bg-blue-100 text-blue-700" :
                                           "bg-slate-100 text-slate-500"
                                         }`}>
-                                          {isLive ? "● LIVE NOW" : session.status}
+                                          {isLive ? "LIVE NOW" : session.status}
                                         </span>
                                         <span className="text-sm font-semibold truncate text-slate-800">{session.title}</span>
                                         <span className="text-xs text-slate-400 shrink-0">

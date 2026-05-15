@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Cloud, Save, Globe, Lock, ExternalLink, Trash2 } from "lucide-react";
-import { StaggeredMenu } from "@/components/StaggeredMenu";
+
 
 // Server Action: Update Lesson Details
 async function updateLesson(formData: FormData) {
@@ -57,39 +57,18 @@ export default async function LessonEditorPage({
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-slate-900">
-      
-      <StaggeredMenu
-        isFixed={true}
-        position="right"
-        items={menuItems}
-        socialItems={socialItems}
-        displaySocials={true}
-        displayItemNumbering={true}
-        menuButtonColor="#0f172a"
-        openMenuButtonColor="#0f172a"
-        changeMenuColorOnOpen={true}
-        colors={['#8b5cf6', '#6d28d9']}
-        accentColor="#8b5cf6"
-      />
-
-      <div className="max-w-4xl mx-auto p-8 space-y-6">
-        
-        
+    <div className="container-page space-y-8">
+      {/* Lesson Header */}
+      <div className="flex items-center justify-between">
         <Link href={`/instructor/courses/${courseId}`}>
-          <Button variant="ghost" className="text-slate-500 hover:text-slate-900 mb-4 px-0">
-            <ArrowLeft className="w-4 h-4 mr-2"/> Back to Curriculum
+          <Button variant="ghost" className="text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 px-0">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Curriculum
           </Button>
         </Link>
-
-        <div className="flex justify-between items-center border-b border-slate-200 pb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Lesson Settings</h1>
-            <p className="text-slate-500 mt-1">
-              Editing lesson in <span className="font-semibold text-slate-700">{lesson.module.title}</span>
-            </p>
-          </div>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-zinc-800">Lesson Settings</h2>
         </div>
+      </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           

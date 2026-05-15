@@ -164,6 +164,21 @@ function FacecamOverlay({
             )}
           </div>
           <div className="flex items-center gap-1">
+            {/* Refresh Camera — host only */}
+            {isHost && (
+              <button
+                id="facecam-refresh-btn"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                   // Trigger re-acquisition in parent via window event or just wait for parent to handle it
+                   (window as any).dispatchEvent(new CustomEvent('reacquire-facecam'));
+                }}
+                title="Refresh Camera"
+                className="text-slate-400 hover:text-white transition-colors p-0.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            )}
             {/* Mute toggle — host only */}
             {isHost && !minimized && (
               <button
@@ -228,7 +243,7 @@ function FacecamOverlay({
 
             {/* Live badge */}
             <div className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-black/60 rounded-full px-2 py-0.5 pointer-events-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="live-dot" />
               <span className="text-[9px] text-white font-bold uppercase tracking-wider">Live</span>
             </div>
 
@@ -296,6 +311,13 @@ export default function LiveClassRoom({
   const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordStreamRef  = useRef<MediaStream | null>(null);
   const scanTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Listen for refresh camera events
+  useEffect(() => {
+    const handler = () => acquireFacecam();
+    window.addEventListener('reacquire-facecam', handler);
+    return () => window.removeEventListener('reacquire-facecam', handler);
+  }, [acquireFacecam]);
   // Ref so the onstop closure can read the final duration without stale state
   const recordingTimeRef = useRef(0);
 
