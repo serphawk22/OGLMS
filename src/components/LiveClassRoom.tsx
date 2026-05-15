@@ -67,16 +67,20 @@ function FacecamOverlay({
   }, []);
 
   // Attach stream to <video>
+  // NOTE: We always set srcObject when stream exists, regardless of isMuted.
+  // Muting is handled by track.enabled, NOT by detaching the stream.
+  // Detaching srcObject causes the browser to release the camera device,
+  // which is the root cause of the "camera disappears during screen share" bug.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    if (stream && !isMuted) {
+    if (stream) {
       v.srcObject = stream;
       v.play().catch(() => {});
     } else {
       v.srcObject = null;
     }
-  }, [stream, isMuted]);
+  }, [stream]);
 
   // Drag
   const onDragDown = useCallback((e: React.PointerEvent) => {
@@ -121,7 +125,7 @@ function FacecamOverlay({
   const onResizeUp = useCallback(() => { resizing.current = false; }, []);
 
   if (!isScreenSharing) return null;
-  if (!stream && !isHost) return null; // students hide if no stream found
+  if (!stream && !isHost) return null;
 
   const label = isHost ? "Your Camera" : `${instructorName} (Instructor)`;
   const hasVideo = !!stream && !isMuted;
@@ -203,16 +207,17 @@ function FacecamOverlay({
             style={{ height: size.h }}
             className="relative bg-slate-950 w-full overflow-hidden"
           >
-            {hasVideo ? (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-                id="instructor-pip-video"
-              />
-            ) : (
+            {/* Always render <video> to keep stream attached — hide via CSS when muted */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+              style={{ display: hasVideo ? "block" : "none" }}
+              id="instructor-pip-video"
+            />
+            {!hasVideo && (
               <div className="flex flex-col items-center justify-center w-full h-full gap-2">
                 <CameraOff className="w-7 h-7 text-slate-600" />
                 <span className="text-[11px] text-slate-500">
@@ -298,13 +303,41 @@ export default function LiveClassRoom({
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   // ── Host: acquire independent webcam for PiP ───────────────────────────────
+  // This creates a SEPARATE MediaStream from getUserMedia that is independent
+  // of ZEGOCLOUD's internal camera stream. This ensures that when ZEGOCLOUD
+  // replaces its camera track with a screen share track, our PiP camera
+  // continues to work from its own independent stream.
   const acquireFacecam = useCallback(async () => {
     if (!isHost) return;
+    // If we already have a live stream with active tracks, reuse it
+    if (facecamRef.current) {
+      const existingTracks = facecamRef.current.getVideoTracks();
+      const allAlive = existingTracks.length > 0 && existingTracks.every(t => t.readyState === "live");
+      if (allAlive) {
+        setFacecamStream(facecamRef.current);
+        return;
+      }
+      // Tracks are dead — clean up and re-acquire
+      facecamRef.current.getTracks().forEach((t) => t.stop());
+      facecamRef.current = null;
+    }
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       if (!mountedRef.current) { s.getTracks().forEach((t) => t.stop()); return; }
       facecamRef.current = s;
       setFacecamStream(s);
+
+      // Monitor for track ending (ZEGOCLOUD or browser may stop our tracks)
+      s.getVideoTracks().forEach((track) => {
+        track.addEventListener("ended", () => {
+          if (mountedRef.current && screenActiveRef.current) {
+            // Re-acquire camera if screen share is still active
+            console.log("[LiveClassRoom] Camera track ended during screen share — re-acquiring");
+            facecamRef.current = null;
+            setTimeout(() => acquireFacecam(), 500);
+          }
+        });
+      });
     } catch {
       // Camera denied or unavailable — overlay shows "no signal"
       setFacecamStream(null);

@@ -3,12 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Lock, Mail, Loader2 } from "lucide-react";
+import { Lock, Mail, Loader2, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -55,49 +54,105 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#ffffff] p-4 relative">
-      <nav className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20 bg-white/60 backdrop-blur-md border-b border-gray-200">
-        <Logo />
-        <div className="space-x-4">
-          <Link href="/login" className="px-4 py-2 bg-black text-white rounded-md text-sm font-medium">Login</Link>
-          <Link href="/register" className="px-4 py-2 border border-black text-black rounded-md text-sm font-medium">Register</Link>
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* Nav */}
+      <nav className="border-b border-zinc-200 bg-white">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <Link href="/">
+            <Logo />
+          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="px-4 py-1.5 bg-zinc-900 text-white rounded-lg text-sm font-medium hover:bg-zinc-800 transition-colors"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/register"
+              className="px-4 py-1.5 border border-zinc-300 text-zinc-700 rounded-lg text-sm font-medium hover:bg-zinc-50 transition-colors"
+            >
+              Register
+            </Link>
+          </div>
         </div>
       </nav>
-      <Card className="w-full max-w-md shadow-sm border-slate-200 mt-16">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">Welcome back</CardTitle>
-          <CardDescription className="text-slate-500">Enter your credentials to access your dashboard</CardDescription>
-        </CardHeader>
-        <CardContent>
+
+      {/* Form */}
+      <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+              Welcome back
+            </h1>
+            <p className="text-sm text-zinc-500 mt-1.5">
+              Enter your credentials to access your dashboard
+            </p>
+          </div>
+
           <form onSubmit={handleLogin} className="space-y-4">
-            {error && <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-md">{error}</div>}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            {error && (
+              <div
+                className="flex items-start gap-2 p-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg"
+                role="alert"
+              >
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="login-email">Email</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input id="email" name="email" type="email" placeholder="m@example.com" required className="pl-9 bg-white" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <Input
+                  id="login-email"
+                  name="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  required
+                  autoComplete="email"
+                  className="pl-9 h-10 bg-white"
+                />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="login-password">Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                <Input id="password" name="password" type="password" required className="pl-9 bg-white" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <Input
+                  id="login-password"
+                  name="password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  className="pl-9 h-10 bg-white"
+                />
               </div>
             </div>
-            <Button type="submit" className="w-full bg-slate-900 text-white hover:bg-slate-800" disabled={loading}>
+
+            <Button
+              type="submit"
+              className="w-full h-10 bg-zinc-900 text-white hover:bg-zinc-800"
+              disabled={loading}
+            >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          <div className="mt-6 text-center text-sm text-slate-600">
-            Don't have an account?{" "}
-            <Link href="/register" className="font-medium text-blue-600 hover:underline">
-              Register here
+
+          <p className="mt-6 text-center text-sm text-zinc-500">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/register"
+              className="font-medium text-zinc-900 hover:underline"
+            >
+              Register
             </Link>
-          </div>
-        </CardContent>
-      </Card>
+          </p>
+        </div>
+      </main>
     </div>
   );
 }

@@ -18,7 +18,7 @@ async function getTransporter() {
   } else {
     // Generate test account automatically for local development
     const testAccount = await nodemailer.createTestAccount();
-    console.log("📧 Creating Ethereal test email account:", testAccount.user);
+    console.log("Creating Ethereal test email account:", testAccount.user);
     transporter = nodemailer.createTransport({
       host: "smtp.ethereal.email",
       port: 587,
@@ -53,11 +53,11 @@ export async function sendEmail({
       html,
     });
 
-    console.log(`✉️ Email sent successfully! Message ID: ${info.messageId}`);
+    console.log(`Email sent successfully! Message ID: ${info.messageId}`);
 
     // Ethereal provides a preview URL since it doesn't actually deliver to real inboxes
     if (!process.env.SMTP_USER) {
-      console.log(`👀 Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
+      console.log(`Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
     }
   } catch (error) {
     console.error("[sendEmail] Failed to send email:", error);
@@ -114,7 +114,6 @@ export async function sendLiveClassEmail({
           <!-- HEADER -->
           <tr>
             <td style="background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 60%,#3b82f6 100%);padding:40px;text-align:center;">
-              <div style="font-size:40px;margin-bottom:10px;">📡</div>
               <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:800;letter-spacing:-0.5px;">Live Class Scheduled!</h1>
               <p style="margin:10px 0 0;color:#bfdbfe;font-size:14px;">A new session has been added to your course</p>
             </td>
@@ -138,25 +137,25 @@ export async function sendLiveClassEmail({
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;">
-                          <span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">📚 Course</span>
+                          <span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Course</span>
                           <p style="margin:5px 0 0;color:#0f172a;font-size:15px;font-weight:700;">${courseName}</p>
                         </td>
                       </tr>
                       <tr>
                         <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;">
-                          <span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">🎯 Session Title</span>
+                          <span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Session Title</span>
                           <p style="margin:5px 0 0;color:#0f172a;font-size:15px;font-weight:700;">${sessionTitle}</p>
                         </td>
                       </tr>
                       <tr>
                         <td style="padding:10px 0;border-bottom:1px solid #e2e8f0;">
-                          <span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">📅 Date &amp; Time</span>
+                          <span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Date &amp; Time</span>
                           <p style="margin:5px 0 0;color:#0f172a;font-size:15px;font-weight:700;">${formattedDate} &nbsp;·&nbsp; ${formattedTime}</p>
                         </td>
                       </tr>
                       <tr>
                         <td style="padding:10px 0 0;">
-                          <span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">👨‍🏫 Instructor</span>
+                          <span style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Instructor</span>
                           <p style="margin:5px 0 0;color:#0f172a;font-size:15px;font-weight:700;">${instructorName}</p>
                         </td>
                       </tr>
@@ -172,7 +171,7 @@ export async function sendLiveClassEmail({
                   <td align="center" style="padding-bottom:20px;">
                     <a href="${joinLink}" target="_blank"
                       style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#ffffff;text-decoration:none;padding:16px 44px;border-radius:10px;font-size:16px;font-weight:800;letter-spacing:0.2px;box-shadow:0 6px 20px rgba(37,99,235,0.40);">
-                      🎬 &nbsp;Join Live Class
+                      Join Live Class
                     </a>
                   </td>
                 </tr>
@@ -204,7 +203,7 @@ export async function sendLiveClassEmail({
 
   await sendEmail({
     to,
-    subject: `📡 Live Class: "${sessionTitle}" — ${courseName}`,
+    subject: `Live Class: "${sessionTitle}" — ${courseName}`,
     html,
   });
 }
