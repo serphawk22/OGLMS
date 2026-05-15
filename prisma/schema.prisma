@@ -23,21 +23,23 @@ model Organization {
 }
 
 model User {
-  id              String               @id @default(cuid())
-  email           String               @unique
-  password        String               // ADDED for custom JWT auth
-  name            String?
-  expertise       String[]             @default([])
-  memberships     OrganizationMember[]
-  enrollments     Enrollment[]
-  coursesCreated  Course[]             @relation("CourseCreator")
-  notifications   Notification[]
-  chats           Chat[]
-  submissions     AssignmentSubmission[]
-  reviews         Review[]
-  quizSubmissions QuizSubmission[]
-  recordedClasses RecordedClass[]
-  materialViews   MaterialView[]
+  id                    String               @id @default(cuid())
+  email                 String               @unique
+  password              String               // ADDED for custom JWT auth
+  name                  String?
+  expertise             String[]             @default([])
+  memberships           OrganizationMember[]
+  enrollments           Enrollment[]
+  coursesCreated        Course[]             @relation("CourseCreator")
+  notifications         Notification[]
+  chats                 Chat[]
+  submissions           AssignmentSubmission[]
+  reviews               Review[]
+  quizSubmissions       QuizSubmission[]
+  recordedClasses       RecordedClass[]
+  materialViews         MaterialView[]
+  adminCommentsAuthored AdminComment[]       @relation("AdminCommentAuthor")
+  adminCommentsReceived AdminComment[]       @relation("AdminCommentStudent")
 }
 
 model OrganizationMember {
@@ -72,6 +74,7 @@ model Course {
   chats            Chat[]
   reviews          Review[]
   recordedClasses  RecordedClass[]
+  adminComments    AdminComment[]
 
   @@index([organizationId])
   @@index([creatorId])
@@ -328,5 +331,24 @@ model MaterialView {
 
   @@unique([materialId, studentId])
   @@index([materialId])
+  @@index([studentId])
+}
+
+// ── Admin Comments (course-level & student-level, visibility enforced by API) ──
+
+model AdminComment {
+  id         String   @id @default(cuid())
+  content    String
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation("AdminCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  targetType String   // "COURSE" | "STUDENT"
+  studentId  String?
+  student    User?    @relation("AdminCommentStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([courseId])
+  @@index([authorId])
   @@index([studentId])
 }

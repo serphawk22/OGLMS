@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, BookOpen, FileText, CheckCircle, LayoutList, Video, Trash2, HelpCircle, ExternalLink, GripVertical, Radio, Link2, MonitorPlay, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, FileText, CheckCircle, LayoutList, Video, Trash2, HelpCircle, ExternalLink, GripVertical, Radio, Link2, MonitorPlay, Users, MessageSquare } from "lucide-react";
 import { notifyEnrolledStudents, createEvent } from "@/lib/notifications";
 import { randomBytes } from "crypto";
 import { StartClassButton } from "@/components/StartClassButton";
@@ -15,6 +15,7 @@ import { SubmissionsPanel } from "@/components/SubmissionsPanel";
 import { sendLiveClassEmail } from "@/lib/mail";
 import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 import { MaterialAnalyticsButton } from "@/components/MaterialAnalyticsButton";
+import { InstructorFeedbackTab } from "@/components/admin/InstructorFeedbackTab";
 
 import { StaggeredMenu } from "@/components/StaggeredMenu";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -457,6 +458,9 @@ export default async function CourseBuilderPage({
             <Link href={`?tab=assignments`}><Button variant={tab === "assignments" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "assignments" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><CheckCircle className="w-4 h-4 mr-2" /> Assignments</Button></Link>
             <Link href={`?tab=quizzes`}><Button variant={tab === "quizzes" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "quizzes" ? "bg-slate-200 text-slate-900 font-semibold" : "text-slate-600"}`}><HelpCircle className="w-4 h-4 mr-2" /> Quizzes & Tests</Button></Link>
             <Link href={`?tab=students`}><Button variant={tab === "students" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "students" ? "bg-emerald-100 text-emerald-700 font-semibold" : "text-slate-600"}`}><Users className="w-4 h-4 mr-2" /> Students Info</Button></Link>
+            <Link href={`?tab=adminfeedback`}><Button variant={tab === "adminfeedback" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "adminfeedback" ? "bg-violet-100 text-violet-700 font-semibold" : "text-slate-600"}`}>
+              <MessageSquare className="w-4 h-4 mr-2" /> Admin Feedback
+            </Button></Link>
           </div>
 
           <div className="md:col-span-3">
@@ -835,7 +839,6 @@ export default async function CourseBuilderPage({
                         {enrollments.map((enr, idx) => {
                           const asgDone = assignmentSubs.filter(s => s.studentId === enr.userId).length;
                           const qzDone  = quizSubs.filter(s => s.studentId === enr.userId).length;
-                          // Count distinct materials viewed (unique materialId per student)
                           const matDone = new Set(
                             materialViews
                               .filter(s => s.studentId === enr.userId)
@@ -892,6 +895,11 @@ export default async function CourseBuilderPage({
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ADMIN FEEDBACK TAB — client component fetches live data */}
+            {tab === "adminfeedback" && (
+              <InstructorFeedbackTab courseId={courseId} />
             )}
 
           </div>

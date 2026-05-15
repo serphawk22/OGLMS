@@ -173,8 +173,8 @@ export default async function StudentDashboard() {
               <Building className="w-6 h-6"/>
             </div>
             <div>
-              <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-0.5">Campus Hub</p>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">{org.name}</h1>
+              <p className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-0.5">{org.name}</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Student Dashboard</h1>
             </div>
           </div>
           <div className="flex items-center gap-6 pr-16"> {/* pr-16 to avoid overlapping with menu button if needed, although it's usually fixed */}

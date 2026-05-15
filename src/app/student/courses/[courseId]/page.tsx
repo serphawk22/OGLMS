@@ -14,6 +14,7 @@ import { ActivityLink } from "@/components/ActivityLink";
 import { QuizTaker } from "@/components/QuizTaker";
 import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { StudentFeedbackTab } from "@/components/admin/StudentFeedbackTab";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
@@ -215,6 +216,11 @@ export default async function StudentCourseView({
             <Link href={`?tab=reviews`}>
               <Button variant={tab === "reviews" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "reviews" ? "bg-amber-100 text-amber-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
                 <Star className="w-4 h-4 mr-3" /> Reviews
+              </Button>
+            </Link>
+            <Link href={`?tab=feedback`}>
+              <Button variant={tab === "feedback" ? "secondary" : "ghost"} className={`w-full justify-start ${tab === "feedback" ? "bg-violet-100 text-violet-700 font-bold" : "text-slate-600 hover:bg-slate-100"}`}>
+                💬 Feedback
               </Button>
             </Link>
           </div>
@@ -570,6 +576,11 @@ export default async function StudentCourseView({
                 courseId={course.id}
                 currentStudentId={studentId}
               />
+            )}
+
+            {/* ---- ADMIN / INSTRUCTOR FEEDBACK ---- */}
+            {tab === "feedback" && (
+              <StudentFeedbackTab courseId={courseId} />
             )}
 
           </div>
