@@ -64,9 +64,7 @@ export default function LoginPage() {
       {/* Nav */}
       <nav className="border-b border-zinc-200 bg-white">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link href="/">
-            <Logo />
-          </Link>
+          <Logo />
           <div className="flex items-center gap-3">
             <Link
               href="/login"
