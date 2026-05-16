@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useCallback, useEffect } from "react";
 import {
@@ -42,6 +42,21 @@ function toDriveEmbed(url: string): string {
   const idMatch = url.match(/[?&]id=([^&]+)/);
   if (idMatch) return `https://drive.google.com/file/d/${idMatch[1]}/preview`;
   return url;
+}
+
+// ─── Cloudinary inline URL helper ────────────────────────────────────────────
+/**
+ * For Cloudinary raw uploads, the default Content-Disposition is 'attachment'.
+ * Injecting 'fl_inline' forces the browser to display/open the file instead
+ * of downloading it. Falls back to the original URL for non-Cloudinary URLs.
+ */
+function toInlineUrl(url: string): string {
+  // Only transform Cloudinary URLs
+  if (!url.includes("res.cloudinary.com")) return url;
+  // Already has fl_inline — no-op
+  if (url.includes("fl_inline")) return url;
+  // Insert fl_inline after /upload/
+  return url.replace("/upload/", "/upload/fl_inline/");
 }
 
 // ─── Embed URL resolver (only called for previewable types) ───────────────────
@@ -112,11 +127,11 @@ export function MaterialViewerModal({
 
   // ── open / close ────────────────────────────────────────────────────────
   const handleOpen = useCallback(() => {
-    // Non-previewable files: bypass the modal entirely — open directly in new tab
+    // Non-previewable files: open inline in new tab (no forced download)
     if (!canPreview) {
-      trackView();                      // analytics still fires
-      window.open(url, "_blank", "noopener,noreferrer");
-      return;                           // modal never opens
+      trackView();
+      window.open(toInlineUrl(url), "_blank", "noopener,noreferrer");
+      return;
     }
     setOpen(true);
     setLoading(true);
@@ -212,6 +227,19 @@ export function MaterialViewerModal({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+              {/* Download button — explicit separate action */}
+              <a
+                href={url}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                title="Download file"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download
+              </a>
+
               {/* Copy link */}
               <button
                 onClick={handleCopy}
@@ -271,16 +299,26 @@ export function MaterialViewerModal({
                       opening it directly.
                     </p>
                     <div className="flex flex-col gap-3 w-full mt-2">
-                      <a href={url} download className="w-full">
+                      <a
+                        href={url}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full"
+                      >
                         <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
                           <Download className="w-4 h-4 mr-2" /> Download File
                         </Button>
                       </a>
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="w-full">
+                      <button
+                        onClick={() => window.open(toInlineUrl(url), "_blank", "noopener,noreferrer")}
+                        className="w-full"
+                        suppressHydrationWarning
+                      >
                         <Button variant="outline" className="w-full border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white">
                           <ExternalLink className="w-4 h-4 mr-2" /> Open in New Tab
                         </Button>
-                      </a>
+                      </button>
                       <Button
                         onClick={handleCopy}
                         variant="outline"
