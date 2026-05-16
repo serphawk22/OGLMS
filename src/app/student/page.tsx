@@ -355,9 +355,5 @@ export default async function StudentDashboard() {
         </div>
       </main>
     </div>
-
-        </div>
-      </main>
-    </div>
   );
 }

@@ -251,6 +251,5 @@ export default async function InstructorProfile() {
 
         </div>
       </div>
-    </div>
   );
 }

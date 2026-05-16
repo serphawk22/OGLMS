@@ -5,59 +5,64 @@ import { SignJWT } from "jose";
 import { cookies } from "next/headers";
 
 // Force Node.js runtime — bcryptjs + Prisma pg adapter need native Node modules.
-// Without this, Next.js 16 tries Edge runtime and the route silently 404s.
 export const runtime = "nodejs";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, loginCode } = await req.json();
 
+    // ── 1. Validate required fields ────────────────────────────────────────
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
+    if (!loginCode?.trim()) {
+      return NextResponse.json({ error: "Login Code is required" }, { status: 400 });
+    }
 
+    // ── 2. Look up the user ────────────────────────────────────────────────
     const user = await prisma.user.findUnique({
       where: { email },
       include: { memberships: true },
     });
 
+    // ── 3. Track daily login streak (fire before password check) ──────────
     if (user) {
-      // Track daily login for streak
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       const existingLogin = await prisma.notification.findFirst({
-        where: {
-          userId: user.id,
-          type: "LOGIN",
-          createdAt: {
-            gte: today,
-          },
-        },
+        where: { userId: user.id, type: "LOGIN", createdAt: { gte: today } },
       });
 
       if (!existingLogin) {
         await prisma.notification.create({
-          data: {
-            userId: user.id,
-            message: "Daily Login",
-            type: "LOGIN",
-          },
+          data: { userId: user.id, message: "Daily Login", type: "LOGIN" },
         });
       }
     }
 
+    // ── 4. Validate password ───────────────────────────────────────────────
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
+    // ── 5. Validate login code ─────────────────────────────────────────────
+    // Existing users created before this feature have loginCode = null.
+    // We allow them in with any code so they are not locked out,
+    // but NEW users always have a code enforced.
+    if (user.loginCode !== null && user.loginCode !== loginCode.trim().toUpperCase()) {
+      return NextResponse.json({ error: "Invalid Login Code" }, { status: 401 });
+    }
+
+    // ── 6. Check organisation membership ──────────────────────────────────
     const primaryMembership = user.memberships[0];
     if (!primaryMembership) {
       return NextResponse.json({ error: "No organization assigned" }, { status: 403 });
     }
 
+    // ── 7. Issue JWT ───────────────────────────────────────────────────────
     const token = await new SignJWT({
       userId: user.id,
       email: user.email,

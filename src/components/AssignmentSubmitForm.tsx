@@ -7,6 +7,12 @@ import { CheckCircle, Send, ExternalLink, Star, MessageSquare, RotateCcw, Loader
 interface Submission {
   id: string;
   driveLink: string;
+  fileUrl?: string | null;
+  publicId?: string | null;
+  fileType?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  originalFileName?: string | null;
   grade: number | null;
   maxGrade: number;
   feedback: string | null;

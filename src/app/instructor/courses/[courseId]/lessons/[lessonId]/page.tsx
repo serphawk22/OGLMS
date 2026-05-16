@@ -142,6 +142,5 @@ export default async function LessonEditorPage({
           </div>
         </div>
       </div>
-    </div>
   );
 }

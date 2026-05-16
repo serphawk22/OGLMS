@@ -7,7 +7,8 @@ import { Logo } from "@/components/Logo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { User, Mail, Lock, Building, Key, Loader2, AlertCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { User, Mail, Lock, Building, Key, Loader2, AlertCircle, CheckCircle, Copy, Check } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function RegisterPage() {
   const [instructorMode, setInstructorMode] = useState<"CREATE" | "JOIN">("CREATE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,7 +47,11 @@ export default function RegisterPage() {
         throw new Error(data.error || "Registration failed");
       }
 
-      router.push("/login");
+      if (data.loginCode) {
+        setGeneratedCode(data.loginCode);
+      } else {
+        router.push("/login");
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -56,6 +63,71 @@ export default function RegisterPage() {
     }
   };
 
+  const handleCopyCode = async () => {
+    if (!generatedCode) return;
+    try {
+      await navigator.clipboard.writeText(generatedCode);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  // ── Registration success screen ──────────────────────────────────────────
+  if (generatedCode) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white p-4 relative">
+        <nav className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-20 bg-white/60 backdrop-blur-md border-b border-gray-200">
+          <Logo />
+        </nav>
+        <Card className="w-full max-w-md shadow-sm border-slate-200 mt-16">
+          <CardContent className="pt-8 pb-8 space-y-6 text-center">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-emerald-600" />
+              </div>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Account Created!</h2>
+              <p className="text-slate-500 text-sm mt-1">Save your login code — you&apos;ll need it every time you sign in.</p>
+            </div>
+
+            <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Your Login Code</p>
+              <div className="flex items-center justify-center gap-3">
+                <span className="text-4xl font-black tracking-widest text-slate-900 font-mono">
+                  {generatedCode}
+                </span>
+                <button
+                  onClick={handleCopyCode}
+                  className="p-2 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
+                  title="Copy code"
+                  suppressHydrationWarning
+                >
+                  {codeCopied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">This code is unique to your account. Keep it safe.</p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-800 font-medium">
+                ⚠️ This code will NOT be shown again. Please save it before continuing.
+              </p>
+            </div>
+
+            <Button
+              onClick={() => router.push("/login")}
+              className="w-full bg-slate-900 text-white hover:bg-slate-800"
+            >
+              Continue to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Registration form ─────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Nav */}
@@ -99,6 +171,7 @@ export default function RegisterPage() {
               type="button"
               role="radio"
               aria-checked={role === "STUDENT"}
+              suppressHydrationWarning
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
                 role === "STUDENT"
                   ? "bg-white text-zinc-900 shadow-sm"
@@ -112,6 +185,7 @@ export default function RegisterPage() {
               type="button"
               role="radio"
               aria-checked={role === "INSTRUCTOR"}
+              suppressHydrationWarning
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
                 role === "INSTRUCTOR"
                   ? "bg-white text-zinc-900 shadow-sm"
@@ -186,6 +260,7 @@ export default function RegisterPage() {
                 <div className="flex gap-1 p-1 bg-zinc-100 rounded-md">
                   <button
                     type="button"
+                    suppressHydrationWarning
                     className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
                       instructorMode === "CREATE"
                         ? "bg-white text-zinc-900 shadow-sm"
@@ -197,6 +272,7 @@ export default function RegisterPage() {
                   </button>
                   <button
                     type="button"
+                    suppressHydrationWarning
                     className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
                       instructorMode === "JOIN"
                         ? "bg-white text-zinc-900 shadow-sm"
@@ -268,6 +344,15 @@ export default function RegisterPage() {
                 </div>
               </div>
             )}
+
+            {/* Info: a login code will be generated */}
+            <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 mt-2">
+              <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-emerald-800">
+                A unique <strong>Login Code</strong> will be generated for your account after registration.
+                You&apos;ll need it every time you sign in.
+              </p>
+            </div>
 
             <Button
               type="submit"

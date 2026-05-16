@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { generateUniqueLoginCode } from "@/lib/loginCode";
 
 // Force Node.js runtime — bcryptjs + Prisma pg adapter need native Node modules
 export const runtime = "nodejs";
@@ -33,10 +34,7 @@ export async function POST(req: Request) {
       }
 
       const org = await prisma.organization.create({
-        data: {
-          name: organizationName,
-          slug: slug,
-        },
+        data: { name: organizationName, slug },
       });
       newOrgId = org.id;
     } else if (role === "STUDENT" && !organizationId) {
@@ -51,11 +49,15 @@ export async function POST(req: Request) {
       assignedRole = organizationName ? "ADMIN" : "INSTRUCTOR";
     }
 
-    await prisma.user.create({
+    // ── Generate a unique login code for this user ────────────────────────
+    const loginCode = await generateUniqueLoginCode(assignedRole, prisma);
+
+    const newUser = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
+        loginCode,
         memberships: {
           create: {
             organizationId: newOrgId,
@@ -65,7 +67,13 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ message: "Registration successful" }, { status: 201 });
+    return NextResponse.json(
+      {
+        message: "Registration successful",
+        loginCode: newUser.loginCode, // returned so the UI can display it to the user
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("[POST /api/auth/register] Error:", error);
     return NextResponse.json({ error: "Registration failed" }, { status: 500 });

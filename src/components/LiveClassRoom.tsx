@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Video, Loader2, AlertCircle, Circle, Square,
   Minimize2, Maximize2, GripVertical, CameraOff,
-  MonitorOff, MicOff, Mic, X, CheckCircle,
+  MonitorOff, MicOff, Mic, X, CheckCircle, RefreshCw,
 } from "lucide-react";
 import { uploadVideoToCloudinary } from "@/lib/cloudinary";
 
@@ -312,12 +312,7 @@ export default function LiveClassRoom({
   const recordStreamRef  = useRef<MediaStream | null>(null);
   const scanTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  // Listen for refresh camera events
-  useEffect(() => {
-    const handler = () => acquireFacecam();
-    window.addEventListener('reacquire-facecam', handler);
-    return () => window.removeEventListener('reacquire-facecam', handler);
-  }, [acquireFacecam]);
+  // NOTE: reacquire-facecam listener is registered after acquireFacecam is declared below.
   // Ref so the onstop closure can read the final duration without stale state
   const recordingTimeRef = useRef(0);
 
@@ -365,6 +360,13 @@ export default function LiveClassRoom({
       setFacecamStream(null);
     }
   }, [isHost]);
+
+  // Listen for refresh camera events (placed here so acquireFacecam is already declared)
+  useEffect(() => {
+    const handler = () => acquireFacecam();
+    window.addEventListener('reacquire-facecam', handler);
+    return () => window.removeEventListener('reacquire-facecam', handler);
+  }, [acquireFacecam]);
 
   const releaseFacecam = useCallback(() => {
     facecamRef.current?.getTracks().forEach((t) => t.stop());

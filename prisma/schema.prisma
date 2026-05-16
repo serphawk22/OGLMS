@@ -27,6 +27,7 @@ model User {
   email                 String               @unique
   password              String               // ADDED for custom JWT auth
   name                  String?
+  loginCode             String?              @unique  // role-prefixed unique code e.g. STU4839
   expertise             String[]             @default([])
   memberships           OrganizationMember[]
   enrollments           Enrollment[]
@@ -140,17 +141,25 @@ model Assignment {
 }
 
 model AssignmentSubmission {
-  id           String     @id @default(cuid())
-  assignmentId String
-  studentId    String
-  driveLink    String
-  grade        Int?
-  maxGrade     Int        @default(100)
-  feedback     String?
-  submittedAt  DateTime   @default(now())
-  gradedAt     DateTime?
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id               String     @id @default(cuid())
+  assignmentId     String
+  studentId        String
+  driveLink        String     @default("") // kept for backward compat — empty for new file uploads
+  // ── Cloudinary file upload fields (all optional for backward compat) ────────
+  fileUrl          String?    // Cloudinary secure_url
+  publicId         String?    // Cloudinary public_id — used for deletion
+  fileType         String?    // lowercase extension: pdf, docx, pptx …
+  mimeType         String?    // application/pdf, image/png …
+  fileSize         Int?       // file size in bytes
+  originalFileName String?    // original filename from student's laptop
+  // ────────────────────────────────────────────────────────────────────────────
+  grade            Int?
+  maxGrade         Int        @default(100)
+  feedback         String?
+  submittedAt      DateTime   @default(now())
+  gradedAt         DateTime?
+  assignment       Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student          User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([assignmentId, studentId])
   @@index([assignmentId])
@@ -158,13 +167,25 @@ model AssignmentSubmission {
 }
 
 model ReadingMaterial {
-  id            String         @id @default(cuid())
-  title         String
-  link          String
-  courseId      String
-  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  createdAt     DateTime       @default(now())
-  materialViews MaterialView[]
+  id               String         @id @default(cuid())
+  title            String
+  link             String?        // optional — kept for backward compat with old Google Drive records
+  fileUrl          String?        // Cloudinary secure_url for uploaded files
+  courseId         String
+  // ── File upload metadata (all optional) ─────────────────────────────────
+  originalFileName String?        // original file name from instructor laptop
+  publicId         String?        // Cloudinary public_id — used for deletion
+  fileType         String?        // lowercase extension: pdf, docx, pptx, png …
+  mimeType         String?        // application/pdf, image/png, etc.
+  resourceType     String?        // Cloudinary resource_type: raw | image | video
+  fileSize         Int?           // file size in bytes
+  uploadedBy       String?        // userId of the instructor who uploaded
+  // ── Relations ───────────────────────────────────────────────────────────
+  course           Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+  materialViews    MaterialView[]
+
+  @@index([courseId])
 }
 
 model Quiz {

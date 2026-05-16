@@ -116,6 +116,7 @@ export function AdminCommentsPanel({ orgId, courses }: Props) {
           <button
             key={t}
             onClick={() => handleTabChange(t)}
+            suppressHydrationWarning
             className={`flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-colors border-b-2 ${
               tab === t
                 ? "border-violet-500 text-violet-700 bg-violet-50"
@@ -141,6 +142,7 @@ export function AdminCommentsPanel({ orgId, courses }: Props) {
             <select
               value={courseId}
               onChange={(e) => { setCourseId(e.target.value); setStudentId(""); setComments([]); }}
+              suppressHydrationWarning
               className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-200"
             >
               <option value="">— Choose a course —</option>
@@ -167,6 +169,7 @@ export function AdminCommentsPanel({ orgId, courses }: Props) {
               <select
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
+                suppressHydrationWarning
                 className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-200"
               >
                 <option value="">— Choose a student —</option>
@@ -213,6 +216,7 @@ export function AdminCommentsPanel({ orgId, courses }: Props) {
                   <button
                     onClick={() => handleDelete(c.id)}
                     disabled={deleting === c.id}
+                    suppressHydrationWarning
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 flex-shrink-0"
                   >
                     {deleting === c.id
@@ -243,6 +247,7 @@ export function AdminCommentsPanel({ orgId, courses }: Props) {
               : "Write a comment and press Enter…"
             }
             disabled={!courseId || (tab === "STUDENT" && !studentId) || posting}
+            suppressHydrationWarning
             className="flex-1 text-sm px-4 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-200 focus:border-violet-300 disabled:opacity-50"
           />
           <Button

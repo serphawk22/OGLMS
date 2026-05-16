@@ -7,7 +7,7 @@ import { Logo } from "@/components/Logo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Lock, Mail, Loader2, AlertCircle } from "lucide-react";
+import { Lock, Mail, Loader2, AlertCircle, Hash } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,15 +22,21 @@ export default function LoginPage() {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email");
     const password = formData.get("password");
+    const loginCode = (formData.get("loginCode") as string)?.trim().toUpperCase();
+
+    if (!loginCode) {
+      setError("Login Code is required.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, loginCode }),
       });
 
-      // Safely parse JSON — if the server returned HTML (404/500 page), show a friendly error
       let data: Record<string, unknown> = {};
       try {
         data = await res.json();
@@ -101,6 +107,7 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Email */}
             <div className="space-y-1.5">
               <Label htmlFor="login-email">Email</Label>
               <div className="relative">
@@ -117,6 +124,7 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Password */}
             <div className="space-y-1.5">
               <Label htmlFor="login-password">Password</Label>
               <div className="relative">
@@ -130,6 +138,30 @@ export default function LoginPage() {
                   className="pl-9 h-10 bg-white"
                 />
               </div>
+            </div>
+
+            {/* Login Code — required for 3FA */}
+            <div className="space-y-1.5">
+              <Label htmlFor="loginCode">
+                Login Code
+                <span className="ml-1 text-xs text-slate-400 font-normal">(e.g. STU4839)</span>
+              </Label>
+              <div className="relative">
+                <Hash className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  id="loginCode"
+                  name="loginCode"
+                  type="text"
+                  placeholder="STU4839"
+                  required
+                  maxLength={10}
+                  className="pl-9 bg-white uppercase tracking-widest font-mono"
+                  style={{ textTransform: "uppercase" }}
+                />
+              </div>
+              <p className="text-xs text-slate-400">
+                Your login code was shown after registration. Contact your admin if lost.
+              </p>
             </div>
 
             <Button

@@ -341,6 +341,5 @@ export default async function WorkspaceDashboard() {
         {/* ── Bottom padding ─────────────────────────────────────────────── */}
         <div className="h-4"/>
       </div>
-    </div>
   );
 }

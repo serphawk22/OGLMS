@@ -16,6 +16,7 @@ import { sendLiveClassEmail } from "@/lib/mail";
 import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 import { MaterialAnalyticsButton } from "@/components/MaterialAnalyticsButton";
 import { InstructorFeedbackTab } from "@/components/admin/InstructorFeedbackTab";
+import { ReadingMaterialUpload } from "@/components/ReadingMaterialUpload";
 
 
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
@@ -59,16 +60,6 @@ async function createLesson(formData: FormData) {
   }
 }
 
-async function createReadingMaterial(formData: FormData) {
-  "use server";
-  const title = formData.get("title") as string;
-  const link = formData.get("link") as string;
-  const courseId = formData.get("courseId") as string;
-  if (title && link && courseId) {
-    await prisma.readingMaterial.create({ data: { title, link, courseId } });
-    revalidatePath(`/instructor/courses/${courseId}`);
-  }
-}
 
 async function createAssignment(formData: FormData) {
   "use server";
@@ -110,8 +101,9 @@ async function deleteResource(formData: FormData) {
   const type = formData.get("type") as string;
   const courseId = formData.get("courseId") as string;
 
+  // Note: reading material deletion is handled via the /api/reading-materials DELETE route
+  // (which also cleans up Cloudinary assets). Only assignments are deleted here.
   if (type === "assignment") await prisma.assignment.delete({ where: { id } });
-  if (type === "reading") await prisma.readingMaterial.delete({ where: { id } });
   
   revalidatePath(`/instructor/courses/${courseId}`);
 }
@@ -334,7 +326,11 @@ export default async function CourseBuilderPage({
   // Fetch submissions for all assignments in this course
   type SubmissionWithStudent = {
     id: string; assignmentId: string; studentId: string;
-    driveLink: string; grade: number | null; maxGrade: number;
+    driveLink: string;
+    fileUrl: string | null; publicId: string | null;
+    fileType: string | null; mimeType: string | null;
+    fileSize: number | null; originalFileName: string | null;
+    grade: number | null; maxGrade: number;
     feedback: string | null; submittedAt: Date; gradedAt: Date | null;
     student: { id: string; name: string | null; email: string };
   };
@@ -594,32 +590,17 @@ export default async function CourseBuilderPage({
               </div>
             )}
 
-            {/* READING TAB */}
+            {/* READING TAB — now uses local file upload via Cloudinary */}
             {tab === "reading" && (
               <div className="space-y-6">
                 <h2 className="text-xl font-bold">Reading Materials</h2>
-                <Card className="border-slate-200 shadow-sm">
-                  <CardHeader><CardTitle className="text-lg">Add New Document</CardTitle></CardHeader>
-                  <CardContent>
-                    <form action={createReadingMaterial} className="space-y-4">
-                      <input type="hidden" name="courseId" value={courseId} />
-                      <div className="space-y-2"><Label>Title</Label><Input name="title" required placeholder="e.g. Week 1 Notes"/></div>
-                      <div className="space-y-2"><Label>Link (Drive/PDF)</Label><Input name="link" required placeholder="https://drive.google.com/..."/></div>
-                      <Button type="submit" className="w-full bg-blue-600 text-white">Save Material</Button>
-                    </form>
-                  </CardContent>
-                </Card>
-                {course.readingMaterials.map((rm) => (
-                  <Card key={rm.id} className="p-4 flex justify-between items-center bg-white border-slate-200">
-                    <div className="flex items-center gap-3"><FileText className="w-5 h-5 text-slate-400"/><span className="font-bold">{rm.title}</span></div>
-                    <div className="flex gap-1 items-center">
-                      <MaterialAnalyticsButton materialId={rm.id} materialTitle={rm.title} courseId={courseId} />
-                      <Link href={rm.link} target="_blank"><Button variant="ghost" size="sm"><ExternalLink className="w-4 h-4"/></Button></Link>
-                      <form action={deleteResource}><input type="hidden" name="id" value={rm.id} /><input type="hidden" name="type" value="reading" /><input type="hidden" name="courseId" value={courseId} /><Button type="submit" variant="ghost" size="sm" className="text-red-500"><Trash2 className="w-4 h-4"/></Button></form>
-                    </div>
-                  </Card>
-                ))}
-                {course.readingMaterials.length === 0 && <p className="text-center py-12 text-slate-400">No reading materials added yet.</p>}
+                {/* ReadingMaterialUpload is a client component that:
+                    - fetches the materials list via GET /api/reading-materials
+                    - uploads files via POST /api/reading-materials/upload (XHR for real progress)
+                    - deletes via DELETE /api/reading-materials (also cleans Cloudinary)
+                    - shows analytics via the existing MaterialAnalyticsButton
+                */}
+                <ReadingMaterialUpload courseId={courseId} />
               </div>
             )}
 
@@ -674,6 +655,12 @@ export default async function CourseBuilderPage({
                           id: s.id,
                           studentId: s.studentId,
                           driveLink: s.driveLink,
+                          fileUrl: s.fileUrl ?? null,
+                          publicId: s.publicId ?? null,
+                          fileType: s.fileType ?? null,
+                          mimeType: s.mimeType ?? null,
+                          fileSize: s.fileSize ?? null,
+                          originalFileName: s.originalFileName ?? null,
                           grade: s.grade,
                           maxGrade: s.maxGrade,
                           feedback: s.feedback ?? null,

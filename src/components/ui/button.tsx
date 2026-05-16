@@ -1,6 +1,5 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
-
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
@@ -40,15 +39,27 @@ const buttonVariants = cva(
   }
 )
 
+/**
+ * Button wrapper around @base-ui/react's ButtonPrimitive.
+ *
+ * suppressHydrationWarning is injected via the `render` prop so it reaches
+ * the actual native <button> DOM element that @base-ui renders internally.
+ * This prevents React hydration mismatch warnings caused by browser extensions
+ * (e.g. LastPass) injecting fdprocessedid attributes into interactive elements.
+ */
 function Button({
   className,
   variant = "default",
   size = "default",
+  render,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
+      // Merge with caller's render prop if provided; otherwise use a plain
+      // <button> with suppressHydrationWarning on the native element.
+      render={render ?? <button suppressHydrationWarning />}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

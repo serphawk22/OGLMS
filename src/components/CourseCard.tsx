@@ -86,5 +86,3 @@ export function CourseCard({ course }: { course: Course }) {
     </Card>
   );
 }
-  );
-}

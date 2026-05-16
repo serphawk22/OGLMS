@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, PlayCircle, FileText, CheckCircle, ExternalLink,
-  BookOpen, ClipboardList, BookMarked, LayoutList, HelpCircle, Radio, Video, Link2, Star, MonitorPlay, MessageSquare
+  BookOpen, ClipboardList, BookMarked, LayoutList, HelpCircle, Radio, Video, Link2, Star, MonitorPlay, MessageSquare, Eye
 } from "lucide-react";
 import { CourseChatbot } from "@/components/CourseChatbot";
 import { AssignmentSubmitForm } from "@/components/AssignmentSubmitForm";
@@ -14,6 +14,7 @@ import { ActivityLink } from "@/components/ActivityLink";
 import { QuizTaker } from "@/components/QuizTaker";
 import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
+import { MaterialViewerModal } from "@/components/MaterialViewerModal";
 import { StudentFeedbackTab } from "@/components/admin/StudentFeedbackTab";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -80,6 +81,9 @@ export default async function StudentCourseView({
   // Fetch this student's assignment submissions
   type SubmissionRow = {
     id: string; assignmentId: string; driveLink: string;
+    fileUrl: string | null; publicId: string | null;
+    fileType: string | null; mimeType: string | null;
+    fileSize: number | null; originalFileName: string | null;
     grade: number | null; maxGrade: number; feedback: string | null;
     submittedAt: Date; gradedAt: Date | null;
   };
@@ -102,6 +106,9 @@ export default async function StudentCourseView({
       },
       select: {
         id: true, assignmentId: true, driveLink: true,
+        fileUrl: true, publicId: true,
+        fileType: true, mimeType: true,
+        fileSize: true, originalFileName: true,
         grade: true, maxGrade: true, feedback: true,
         submittedAt: true, gradedAt: true,
       },
@@ -390,34 +397,141 @@ export default async function StudentCourseView({
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {course.readingMaterials.map((rm) => (
-                      <div key={rm.id} className="flex items-center justify-between p-5 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-violet-300 hover:shadow-md transition-all group">
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center shrink-0 border border-violet-100 group-hover:bg-violet-100 transition-colors">
-                            <FileText className="w-6 h-6 text-violet-600" />
+                    {course.readingMaterials.map((rm) => {
+                      // Backward compat: new uploads use fileUrl, old Drive records use link
+                      const fileUrl = (rm as unknown as { fileUrl?: string | null }).fileUrl ?? rm.link;
+                      const mimeType = (rm as unknown as { mimeType?: string | null }).mimeType ?? null;
+                      const fileType = (rm as unknown as { fileType?: string | null }).fileType ?? null;
+                      const fileSize = (rm as unknown as { fileSize?: number | null }).fileSize ?? null;
+                      const originalFileName = (rm as unknown as { originalFileName?: string | null }).originalFileName ?? null;
+                      const isUploaded = !!(rm as unknown as { fileUrl?: string | null }).fileUrl;
+
+                      const ext = fileType?.toLowerCase() ?? "";
+                      const isImage = mimeType?.startsWith("image/") || ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
+                      const isPdf   = mimeType === "application/pdf" || ext === "pdf";
+
+                      // Format file size
+                      let sizeLabel = "";
+                      if (fileSize) {
+                        if (fileSize < 1024) sizeLabel = `${fileSize} B`;
+                        else if (fileSize < 1024 * 1024) sizeLabel = `${(fileSize / 1024).toFixed(1)} KB`;
+                        else sizeLabel = `${(fileSize / 1024 / 1024).toFixed(1)} MB`;
+                      }
+
+                      // Icon selection
+                      let iconColor = "text-violet-500";
+                      let iconBg    = "bg-violet-50 border-violet-100";
+                      let IconComp  = FileText;
+                      if (!isUploaded) {
+                        iconColor = "text-slate-400"; iconBg = "bg-slate-50 border-slate-200"; IconComp = Link2;
+                      } else if (isImage) {
+                        iconColor = "text-purple-500"; iconBg = "bg-purple-50 border-purple-100"; IconComp = FileText;
+                      } else if (isPdf) {
+                        iconColor = "text-red-500"; iconBg = "bg-red-50 border-red-100"; IconComp = FileText;
+                      } else if (["ppt","pptx"].includes(ext)) {
+                        iconColor = "text-orange-500"; iconBg = "bg-orange-50 border-orange-100"; IconComp = FileText;
+                      } else if (["doc","docx"].includes(ext)) {
+                        iconColor = "text-blue-500"; iconBg = "bg-blue-50 border-blue-100"; IconComp = FileText;
+                      } else if (["xls","xlsx"].includes(ext)) {
+                        iconColor = "text-green-500"; iconBg = "bg-green-50 border-green-100"; IconComp = FileText;
+                      } else if (["zip","rar","7z"].includes(ext)) {
+                        iconColor = "text-yellow-600"; iconBg = "bg-yellow-50 border-yellow-100"; IconComp = FileText;
+                      } else if (["py","js","ts","txt","md","html"].includes(ext)) {
+                        iconColor = "text-slate-500"; iconBg = "bg-slate-50 border-slate-200"; IconComp = FileText;
+                      }
+
+                      return (
+                        <div key={rm.id} className="bg-white border border-slate-200 rounded-xl shadow-sm hover:border-violet-300 hover:shadow-md transition-all group overflow-hidden">
+                          <div className="flex items-center justify-between p-5">
+                            <div className="flex items-center gap-4 min-w-0">
+                              {/* File type icon */}
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${iconBg} group-hover:opacity-90 transition-opacity`}>
+                                <IconComp className={`w-6 h-6 ${iconColor}`} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-lg text-slate-800 truncate">{rm.title}</p>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  {isUploaded && originalFileName && (
+                                    <span className="text-sm text-slate-400 truncate max-w-[220px]">{originalFileName}</span>
+                                  )}
+                                  {isUploaded && sizeLabel && (
+                                    <>
+                                      <span className="text-slate-300 text-xs">·</span>
+                                      <span className="text-sm text-slate-400">{sizeLabel}</span>
+                                    </>
+                                  )}
+                                  {isUploaded && ext && (
+                                    <>
+                                      <span className="text-slate-300 text-xs">·</span>
+                                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{ext}</span>
+                                    </>
+                                  )}
+                                  {!isUploaded && rm.link && (
+                                    <span className="text-sm text-slate-400 truncate max-w-[200px]">{rm.link}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Open Material — embedded viewer, no new tab, no download */}
+                            {fileUrl && (
+                              <MaterialViewerModal
+                                url={fileUrl}
+                                title={rm.title}
+                                ext={ext}
+                                mimeType={mimeType}
+                                materialId={rm.id}
+                                activityMessage={`Opened reading material: ${rm.title}`}
+                              >
+                                <Button className="ml-4 shrink-0 bg-violet-600 hover:bg-violet-700 text-white shadow-sm">
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  Open Material
+                                </Button>
+                              </MaterialViewerModal>
+                            )}
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-lg text-slate-800 truncate">{rm.title}</p>
-                            <p className="text-sm text-slate-400 truncate mt-0.5">{rm.link}</p>
-                          </div>
+
+                          {/* Inline image preview */}
+                          {isUploaded && isImage && fileUrl && (
+                            <div className="px-5 pb-5">
+                              <div className="rounded-lg overflow-hidden border border-slate-100 bg-slate-50 max-h-64 flex items-center justify-center">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={fileUrl}
+                                  alt={rm.title}
+                                  className="max-h-64 max-w-full object-contain"
+                                  loading="lazy"
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Inline PDF preview via iframe */}
+                          {isUploaded && isPdf && fileUrl && (
+                            <div className="px-5 pb-5">
+                              <details className="group/pdf">
+                                <summary className="text-xs font-semibold text-violet-600 hover:text-violet-800 cursor-pointer select-none mb-2">
+                                  Preview PDF ▾
+                                </summary>
+                                <div className="rounded-lg overflow-hidden border border-slate-100">
+                                  <iframe
+                                    src={`${fileUrl}#toolbar=0`}
+                                    className="w-full h-96 bg-slate-50"
+                                    title={rm.title}
+                                    loading="lazy"
+                                  />
+                                </div>
+                              </details>
+                            </div>
+                          )}
                         </div>
-                        <ActivityLink
-                          href={rm.link}
-                          type="MATERIAL"
-                          message={`Opened reading material: ${rm.title}`}
-                          materialId={rm.id}
-                          className="ml-4 shrink-0"
-                        >
-                          <Button className="bg-violet-600 hover:bg-violet-700 text-white shadow-sm">
-                            Open Material <ExternalLink className="w-4 h-4 ml-2" />
-                          </Button>
-                        </ActivityLink>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
             )}
+
 
             {/* ---- ASSIGNMENTS ---- */}
             {tab === "assignments" && (
@@ -467,6 +581,12 @@ export default async function StudentCourseView({
                               existingSubmission={existingSub ? {
                                 id: existingSub.id,
                                 driveLink: existingSub.driveLink,
+                                fileUrl: existingSub.fileUrl ?? null,
+                                publicId: existingSub.publicId ?? null,
+                                fileType: existingSub.fileType ?? null,
+                                mimeType: existingSub.mimeType ?? null,
+                                fileSize: existingSub.fileSize ?? null,
+                                originalFileName: existingSub.originalFileName ?? null,
                                 grade: existingSub.grade,
                                 maxGrade: existingSub.maxGrade,
                                 feedback: existingSub.feedback,
