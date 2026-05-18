@@ -8,6 +8,13 @@ export async function proxy(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
   const { pathname } = req.nextUrl;
 
+  // ── Let Next.js server actions pass through untouched ──────────────────────
+  // Server actions POST to the page's own URL with a "Next-Action" header.
+  // Redirecting them breaks the action and causes "unexpected response" errors.
+  if (req.headers.get("Next-Action") !== null) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/student") || pathname.startsWith("/instructor")) {
     if (!token) return NextResponse.redirect(new URL("/login", req.url));
 

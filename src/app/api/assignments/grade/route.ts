@@ -7,13 +7,16 @@ export const runtime = "nodejs";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
-async function getUserId(): Promise<string | null> {
+async function getUser(): Promise<{ userId: string; role: string } | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
     if (!token) return null;
     const { payload } = await jwtVerify(token, secret);
-    return (payload.userId as string) ?? null;
+    const userId = payload.userId as string;
+    const role   = payload.role   as string;
+    if (!userId) return null;
+    return { userId, role };
   } catch {
     return null;
   }
@@ -22,10 +25,11 @@ async function getUserId(): Promise<string | null> {
 // POST /api/assignments/grade
 // Body: { submissionId, grade, feedback }
 export async function POST(req: NextRequest) {
-  const userId = await getUserId();
-  if (!userId) {
+  const user = await getUser();
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const { userId, role } = user;
 
   let body: { submissionId?: string; grade?: string | number; feedback?: string };
   try {
@@ -60,7 +64,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Submission not found." }, { status: 404 });
     }
 
-    if (submission.assignment.course.creatorId !== userId) {
+    // ADMIN can grade any submission; instructor must own the course.
+    if (user.role !== "ADMIN" && submission.assignment.course.creatorId !== userId) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 

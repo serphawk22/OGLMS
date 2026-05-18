@@ -41,8 +41,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    const isInstructor = course.creatorId === user.userId;
-    if (!isInstructor) {
+    // Any INSTRUCTOR/ADMIN in the org can read materials; enrolled students can too.
+    // We check org membership first (covers admins + instructors who didn't create the course).
+    const orgInfo = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { organizationId: true },
+    });
+    const membership = orgInfo
+      ? await prisma.organizationMember.findUnique({
+          where: { userId_organizationId: { userId: user.userId, organizationId: orgInfo.organizationId } },
+          select: { role: true },
+        })
+      : null;
+    const isOrgStaff = membership && (membership.role === "INSTRUCTOR" || membership.role === "ADMIN");
+
+    if (!isOrgStaff) {
+      // Fall through: check if student is enrolled
       const enrollment = await prisma.enrollment.findUnique({
         where: { userId_courseId: { userId: user.userId, courseId } },
         select: { id: true },
@@ -100,9 +114,17 @@ export async function DELETE(req: NextRequest) {
     // Verify instructor owns this course
     const course = await prisma.course.findUnique({
       where: { id: courseId },
-      select: { creatorId: true },
+      select: { organizationId: true },
     });
-    if (!course || course.creatorId !== user.userId) {
+    // Any INSTRUCTOR/ADMIN in the org can delete materials (not just the creator).
+    if (!course) {
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
+    }
+    const membership = await prisma.organizationMember.findUnique({
+      where: { userId_organizationId: { userId: user.userId, organizationId: course.organizationId } },
+      select: { role: true },
+    });
+    if (!membership || (membership.role !== "INSTRUCTOR" && membership.role !== "ADMIN")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

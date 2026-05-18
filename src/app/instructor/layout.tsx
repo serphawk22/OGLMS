@@ -8,9 +8,6 @@ import {
   BookOpen, 
   Users, 
   UserCircle, 
-  Settings,
-  ShieldCheck,
-  FileText
 } from "lucide-react";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
@@ -43,19 +40,13 @@ export default async function InstructorLayout({
   const org = membership.organization;
   const isFounder = membership.role === "ADMIN";
 
+  // Base nav — identical for both INSTRUCTOR and ADMIN
   const navItems: NavItem[] = [
-    { label: "Dashboard", href: "/instructor", icon: <LayoutDashboard className="w-4 h-4" /> },
-    { label: "Courses", href: "/instructor#courses", icon: <BookOpen className="w-4 h-4" /> },
-    { label: "Directory", href: "/instructor#directory", icon: <Users className="w-4 h-4" /> },
-    { label: "My Profile", href: "/instructor/profile", icon: <UserCircle className="w-4 h-4" /> },
+    { label: "Dashboard",  href: "/instructor",          icon: <LayoutDashboard className="w-4 h-4" /> },
+    { label: "Courses",    href: "/instructor#courses",   icon: <BookOpen        className="w-4 h-4" /> },
+    { label: "Directory",  href: "/instructor#directory", icon: <Users           className="w-4 h-4" /> },
+    { label: "My Profile", href: "/instructor/profile",   icon: <UserCircle      className="w-4 h-4" /> },
   ];
-
-  if (isFounder) {
-    navItems.push(
-      { label: "Admin Hub", href: "/admin", icon: <ShieldCheck className="w-4 h-4" /> },
-      { label: "Logs", href: "/instructor/logs", icon: <FileText className="w-4 h-4" /> }
-    );
-  }
 
   return (
     <div className="page-shell">

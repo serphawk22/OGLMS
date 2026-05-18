@@ -44,30 +44,34 @@ function toDriveEmbed(url: string): string {
   return url;
 }
 
-// ─── Cloudinary inline URL helper ────────────────────────────────────────────
+// ─── Open URL resolver ────────────────────────────────────────────────────
 /**
- * For Cloudinary raw uploads, the default Content-Disposition is 'attachment'.
- * Injecting 'fl_inline' forces the browser to display/open the file instead
- * of downloading it. Falls back to the original URL for non-Cloudinary URLs.
+ * Office file extensions that can be viewed in Google Docs Viewer
+ * instead of being forced-downloaded by the browser.
  */
-function toInlineUrl(url: string): string {
-  // Only transform Cloudinary URLs
-  if (!url.includes("res.cloudinary.com")) return url;
-  // Already has fl_inline — no-op
-  if (url.includes("fl_inline")) return url;
-  // Insert fl_inline after /upload/
-  return url.replace("/upload/", "/upload/fl_inline/");
-}
+const OFFICE_EXTS = new Set([
+  "xlsx", "xls", "xlsm",
+  "docx", "doc",
+  "pptx", "ppt",
+  "odt", "ods", "odp",
+  "csv",
+]);
 
-// ─── Embed URL resolver (only called for previewable types) ───────────────────
-
-function resolveEmbedUrl(url: string, ext: string, mimeType: string | null): string {
-  const isPdf = mimeType === "application/pdf" || ext === "pdf";
-  if (isDriveUrl(url)) return toDriveEmbed(url);
-  if (isPdf) return `${url}#toolbar=0&navpanes=0&scrollbar=1`;
-  // Images and text — embed directly
+/**
+ * Returns a URL that opens the file inline in the browser:
+ * - Office files → Google Docs Viewer (renders without downloading)
+ * - Everything else → original URL (browser opens natively for PDF/images/txt;
+ *   other types like zip will still prompt a save-dialog but at least
+ *   the tab opens cleanly instead of erroring out)
+ */
+function getOpenUrl(url: string, ext: string): string {
+  const e = ext.toLowerCase().trim();
+  if (OFFICE_EXTS.has(e)) {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}`;
+  }
   return url;
 }
+
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -127,10 +131,10 @@ export function MaterialViewerModal({
 
   // ── open / close ────────────────────────────────────────────────────────
   const handleOpen = useCallback(() => {
-    // Non-previewable files: open inline in new tab (no forced download)
+    // Non-previewable files: open via best available viewer in new tab
     if (!canPreview) {
       trackView();
-      window.open(toInlineUrl(url), "_blank", "noopener,noreferrer");
+      window.open(getOpenUrl(url, ext), "_blank", "noopener,noreferrer");
       return;
     }
     setOpen(true);
@@ -138,7 +142,7 @@ export function MaterialViewerModal({
     setIframeLoaded(false);
     setIframeError(false);
     trackView();
-  }, [canPreview, url, trackView]);
+  }, [canPreview, url, ext, trackView]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -311,7 +315,7 @@ export function MaterialViewerModal({
                         </Button>
                       </a>
                       <button
-                        onClick={() => window.open(toInlineUrl(url), "_blank", "noopener,noreferrer")}
+                        onClick={() => window.open(getOpenUrl(url, ext), "_blank", "noopener,noreferrer")}
                         className="w-full"
                         suppressHydrationWarning
                       >

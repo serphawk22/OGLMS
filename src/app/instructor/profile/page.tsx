@@ -34,6 +34,8 @@ export default async function InstructorProfile() {
   
   const membership = user.memberships[0];
   const org = membership.organization;
+  const isAdmin = membership.role === "ADMIN";
+  const profileTitle = isAdmin ? "Admin Profile" : "Instructor Profile";
 
   // Real stats for the instructor
   const courses = await prisma.course.findMany({ 
@@ -96,7 +98,7 @@ export default async function InstructorProfile() {
             </Button>
           </Link>
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold text-zinc-800">Instructor Profile</h2>
+            <h2 className="text-2xl font-bold text-zinc-800">{profileTitle}</h2>
           </div>
         </div>
 

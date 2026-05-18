@@ -8,13 +8,16 @@ export const runtime = "nodejs";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
-async function getUserId(): Promise<string | null> {
+async function getUser(): Promise<{ userId: string; role: string } | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
     if (!token) return null;
     const { payload } = await jwtVerify(token, secret);
-    return (payload.userId as string) ?? null;
+    const userId = payload.userId as string;
+    const role   = payload.role   as string;
+    if (!userId) return null;
+    return { userId, role };
   } catch {
     return null;
   }
@@ -24,10 +27,11 @@ async function getUserId(): Promise<string | null> {
 // Body: { assignmentId, fileUrl, publicId, fileType, mimeType, fileSize, originalFileName }
 // Called by student AFTER the file has been uploaded to Cloudinary client-side.
 export async function POST(req: NextRequest) {
-  const studentId = await getUserId();
-  if (!studentId) {
+  const currentUser = await getUser();
+  if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const studentId = currentUser.userId;
 
   let body: {
     assignmentId?: string;
@@ -102,10 +106,11 @@ export async function POST(req: NextRequest) {
 // Deletes the Cloudinary asset (if any) and then removes the DB record.
 // Only the owning student or the course instructor may delete.
 export async function DELETE(req: NextRequest) {
-  const userId = await getUserId();
-  if (!userId) {
+  const currentUser = await getUser();
+  if (!currentUser) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const { userId, role } = currentUser;
 
   let body: { submissionId?: string };
   try {
@@ -131,10 +136,11 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Submission not found." }, { status: 404 });
     }
 
-    // Allow: student who submitted OR course instructor
-    const isOwner = submission.studentId === userId;
+    // Allow: student who submitted, course instructor, or ADMIN
+    const isOwner      = submission.studentId === userId;
+    const isAdmin      = role === "ADMIN";
     const isInstructor = submission.assignment.course.creatorId === userId;
-    if (!isOwner && !isInstructor) {
+    if (!isOwner && !isAdmin && !isInstructor) {
       return NextResponse.json({ error: "Forbidden." }, { status: 403 });
     }
 

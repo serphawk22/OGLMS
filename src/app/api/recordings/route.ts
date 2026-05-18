@@ -39,12 +39,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify instructor owns this course
+    // ADMIN can save recordings for any course; instructor must own it.
     const course = await prisma.course.findUnique({
       where: { id: courseId },
       select: { creatorId: true },
     });
-    if (!course || course.creatorId !== user.userId) {
+    if (!course) {
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
+    }
+    if (user.role !== "ADMIN" && course.creatorId !== user.userId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -89,8 +92,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
+    // ADMIN can view recordings for any course; instructor must own it;
+    // student must be enrolled.
+    const isAdmin = user.role === "ADMIN";
     const isInstructor = course.creatorId === user.userId;
-    if (!isInstructor) {
+    if (!isAdmin && !isInstructor) {
       const enrollment = await prisma.enrollment.findUnique({
         where: { userId_courseId: { userId: user.userId, courseId } },
         select: { id: true },

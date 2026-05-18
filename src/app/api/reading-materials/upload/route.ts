@@ -107,20 +107,34 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Verify instructor owns this course ────────────────────────────────────
+  // ── Verify uploader is an org member (INSTRUCTOR or ADMIN) ────────────────
+  // Any instructor/admin in the same org can upload materials to any course.
+  // We do NOT restrict to course creator — admins create courses for instructors.
   try {
     const course = await prisma.course.findUnique({
       where: { id: courseId },
-      select: { creatorId: true },
+      select: { organizationId: true },
     });
     if (!course) {
       return NextResponse.json({ error: "Course not found." }, { status: 404 });
     }
-    if (course.creatorId !== user.userId) {
-      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+
+    const membership = await prisma.organizationMember.findUnique({
+      where: { userId_organizationId: { userId: user.userId, organizationId: course.organizationId } },
+      select: { role: true },
+    });
+    if (!membership || (membership.role !== "INSTRUCTOR" && membership.role !== "ADMIN")) {
+      console.warn(
+        `[POST /api/reading-materials/upload] Forbidden: user=${user.userId} role=${user.role} is not an INSTRUCTOR/ADMIN in org for course=${courseId}`
+      );
+      return NextResponse.json({ error: "Forbidden. You must be an instructor or admin in this organisation." }, { status: 403 });
     }
+
+    console.log(
+      `[POST /api/reading-materials/upload] Access granted: user=${user.userId} memberRole=${membership.role} course=${courseId}`
+    );
   } catch (err) {
-    console.error("[POST /api/reading-materials/upload] DB course lookup failed:", err);
+    console.error("[POST /api/reading-materials/upload] DB access check failed:", err);
     return NextResponse.json({ error: "Internal Server Error." }, { status: 500 });
   }
 
