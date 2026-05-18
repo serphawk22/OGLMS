@@ -49,36 +49,32 @@ function extColor(ext: string | null | undefined): string {
 
 // ─── getOpenUrl ─────────────────────────────────────────────────────
 /**
- * Returns the best URL to VIEW (not download) a file in a new browser tab.
+ * Returns the best URL to VIEW a file in a new browser tab.
  *
  * Strategy:
- *  • Office / spreadsheet files (xlsx, xls, doc, docx, ppt, pptx, csv)
- *      → Google Docs Viewer — renders the file in-browser, no download
- *  • PDFs and images hosted on Cloudinary
- *      → inject "fl_inline" into the Cloudinary URL to change
- *        Content-Disposition from "attachment" to "inline"
- *  • Everything else
- *      → return the original URL unchanged
+ *  • PDF → direct URL (browser native PDF viewer — Chrome/Firefox/Edge all support it)
+ *  • Office files (docx, xlsx, pptx etc.)
+ *      → Microsoft Office Online Viewer (fetches files on-demand, works with Cloudinary)
+ *  • Images / everything else → direct URL
+ *
+ * NOTE: Google Docs Viewer is NOT used because it requires Google to pre-crawl
+ * the URL, which fails for Cloudinary-hosted files (shows "No preview available").
  */
 function getOpenUrl(fileUrl: string, ext: string | null | undefined): string {
   const e = (ext ?? "").toLowerCase();
 
-  // Office / spreadsheet / structured-data files → Google Docs Viewer
+  // PDF → direct URL (browser native viewer, no external service needed)
+  if (e === "pdf") return fileUrl;
+
+  // Office files → Microsoft Office Online Viewer (works with any public URL)
   if (["xlsx", "xls", "doc", "docx", "ppt", "pptx", "csv"].includes(e)) {
-    return `https://docs.google.com/viewer?embedded=false&url=${encodeURIComponent(fileUrl)}`;
+    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
   }
 
-  // Cloudinary-hosted files: inject fl_inline after /upload/ so the CDN
-  // sets Content-Disposition: inline instead of attachment.
-  if (fileUrl.includes("res.cloudinary.com") && fileUrl.includes("/upload/")) {
-    // Avoid double-injecting if already present
-    if (!fileUrl.includes("/upload/fl_inline")) {
-      return fileUrl.replace("/upload/", "/upload/fl_inline/");
-    }
-  }
-
+  // Images, txt, zip, py, etc. → direct URL
   return fileUrl;
 }
+
 
 // ─── Submission action buttons (Open + Download for files / View for Drive) ──
 

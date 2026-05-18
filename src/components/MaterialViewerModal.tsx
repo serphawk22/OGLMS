@@ -44,6 +44,24 @@ function toDriveEmbed(url: string): string {
   return url;
 }
 
+/**
+ * Resolves the best URL to embed in an <iframe> for previewable file types.
+ *  - Google Drive links  → Drive /preview embed URL
+ *  - PDF / images / txt  → direct URL (browser renders natively in iframes)
+ */
+function resolveEmbedUrl(url: string, ext: string, mimeType: string | null): string {
+  // Drive files need their special embed URL
+  if (isDriveUrl(url)) return toDriveEmbed(url);
+
+  const e = ext.toLowerCase().trim();
+
+  // PDF → direct URL; Chrome/Firefox/Edge render PDFs natively inside iframes
+  if (e === "pdf" || mimeType === "application/pdf") return url;
+
+  // Images and plain text → direct URL
+  return url;
+}
+
 // ─── Open URL resolver ────────────────────────────────────────────────────
 /**
  * Office file extensions that can be viewed in Google Docs Viewer
