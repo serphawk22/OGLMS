@@ -14,10 +14,14 @@ import { ActivityLink } from "@/components/ActivityLink";
 import { QuizTaker } from "@/components/QuizTaker";
 import { RecordedClassesTab } from "@/components/RecordedClassesTab";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
-import { MaterialViewerModal } from "@/components/MaterialViewerModal";
+import { FileViewerModal } from "@/components/modals/FileViewerModal";
 import { StudentFeedbackTab } from "@/components/admin/StudentFeedbackTab";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+
+// Force dynamic rendering — this page reads cookies and makes per-user DB
+// queries, so Next.js must never serve a cached RSC payload for any tab URL.
+export const dynamic = "force-dynamic";
 
 
 
@@ -56,7 +60,10 @@ export default async function StudentCourseView({
           recordedClasses: { orderBy: { createdAt: "desc" } },
         },
       },
-      readingMaterials: { orderBy: { createdAt: "desc" } },
+      readingMaterials: {
+        orderBy: { createdAt: "desc" },
+        include: { file: true },
+      },
       assignments: { orderBy: { createdAt: "desc" } },
       quizzes: { include: { questions: true } },
       liveSessions: { orderBy: { createdAt: "desc" } },
@@ -106,9 +113,13 @@ export default async function StudentCourseView({
       },
       select: {
         id: true, assignmentId: true, driveLink: true,
+        // Legacy fields (backward compat)
         fileUrl: true, publicId: true,
         fileType: true, mimeType: true,
         fileSize: true, originalFileName: true,
+        // New normalized relation
+        fileId: true,
+        file: true,
         grade: true, maxGrade: true, feedback: true,
         submittedAt: true, gradedAt: true,
       },
@@ -398,73 +409,58 @@ export default async function StudentCourseView({
                 ) : (
                   <div className="space-y-4">
                     {course.readingMaterials.map((rm) => {
-                      // Backward compat: new uploads use fileUrl, old Drive records use link
-                      const fileUrl = (rm as unknown as { fileUrl?: string | null }).fileUrl ?? rm.link;
-                      const mimeType = (rm as unknown as { mimeType?: string | null }).mimeType ?? null;
-                      const fileType = (rm as unknown as { fileType?: string | null }).fileType ?? null;
-                      const fileSize = (rm as unknown as { fileSize?: number | null }).fileSize ?? null;
-                      const originalFileName = (rm as unknown as { originalFileName?: string | null }).originalFileName ?? null;
-                      const isUploaded = !!(rm as unknown as { fileUrl?: string | null }).fileUrl;
+                      // Resolve file info: prefer normalized UploadedFile relation, fall back to legacy fields
+                      const rmAny = rm as unknown as {
+                        file?: { url: string; originalName: string; mimeType: string; size: number; extension: string } | null;
+                        fileUrl?: string | null;
+                        mimeType?: string | null;
+                        fileType?: string | null;
+                        fileSize?: number | null;
+                        originalFileName?: string | null;
+                      };
 
-                      const ext = fileType?.toLowerCase() ?? "";
-                      const isImage = mimeType?.startsWith("image/") || ["jpg","jpeg","png","gif","webp","svg","bmp"].includes(ext);
-                      const isPdf   = mimeType === "application/pdf" || ext === "pdf";
+                      const fileUrl      = rmAny.file?.url ?? rmAny.fileUrl ?? rm.link;
+                      const fileName     = rmAny.file?.originalName ?? rmAny.originalFileName ?? rm.title;
+                      const mimeType     = rmAny.file?.mimeType ?? rmAny.mimeType ?? null;
+                      const fileSize     = rmAny.file?.size ?? rmAny.fileSize ?? null;
+                      const ext          = (rmAny.file?.extension ?? rmAny.fileType ?? "").toLowerCase();
+                      const isUploaded   = !!(rmAny.file ?? rmAny.fileUrl);
 
-                      // Format file size
-                      let sizeLabel = "";
-                      if (fileSize) {
-                        if (fileSize < 1024) sizeLabel = `${fileSize} B`;
-                        else if (fileSize < 1024 * 1024) sizeLabel = `${(fileSize / 1024).toFixed(1)} KB`;
-                        else sizeLabel = `${(fileSize / 1024 / 1024).toFixed(1)} MB`;
-                      }
-
-                      // Icon selection
-                      let iconColor = "text-violet-500";
-                      let iconBg    = "bg-violet-50 border-violet-100";
-                      let IconComp  = FileText;
-                      if (!isUploaded) {
-                        iconColor = "text-slate-400"; iconBg = "bg-slate-50 border-slate-200"; IconComp = Link2;
-                      } else if (isImage) {
-                        iconColor = "text-purple-500"; iconBg = "bg-purple-50 border-purple-100"; IconComp = FileText;
-                      } else if (isPdf) {
-                        iconColor = "text-red-500"; iconBg = "bg-red-50 border-red-100"; IconComp = FileText;
-                      } else if (["ppt","pptx"].includes(ext)) {
-                        iconColor = "text-orange-500"; iconBg = "bg-orange-50 border-orange-100"; IconComp = FileText;
-                      } else if (["doc","docx"].includes(ext)) {
-                        iconColor = "text-blue-500"; iconBg = "bg-blue-50 border-blue-100"; IconComp = FileText;
-                      } else if (["xls","xlsx"].includes(ext)) {
-                        iconColor = "text-green-500"; iconBg = "bg-green-50 border-green-100"; IconComp = FileText;
-                      } else if (["zip","rar","7z"].includes(ext)) {
-                        iconColor = "text-yellow-600"; iconBg = "bg-yellow-50 border-yellow-100"; IconComp = FileText;
-                      } else if (["py","js","ts","txt","md","html"].includes(ext)) {
-                        iconColor = "text-slate-500"; iconBg = "bg-slate-50 border-slate-200"; IconComp = FileText;
-                      }
+                      // Simple size label
+                      const sizeLabel = fileSize
+                        ? fileSize < 1024 ? `${fileSize} B`
+                          : fileSize < 1024 * 1024 ? `${(fileSize / 1024).toFixed(1)} KB`
+                          : `${(fileSize / 1024 / 1024).toFixed(1)} MB`
+                        : "";
 
                       return (
                         <div key={rm.id} className="bg-white border border-slate-200 rounded-xl shadow-sm hover:border-violet-300 hover:shadow-md transition-all group overflow-hidden">
                           <div className="flex items-center justify-between p-5">
                             <div className="flex items-center gap-4 min-w-0">
-                              {/* File type icon */}
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${iconBg} group-hover:opacity-90 transition-opacity`}>
-                                <IconComp className={`w-6 h-6 ${iconColor}`} />
-                              </div>
+                              {/* File type icon — resolved via getFileIcon from centralized utils */}
+                              {(() => {
+                                const { Icon, color: iconColor, bg: iconBg } = isUploaded
+                                  ? { Icon: FileText, color: "text-violet-500", bg: "bg-violet-50 border-violet-100" }
+                                  : { Icon: Link2, color: "text-slate-400", bg: "bg-slate-50 border-slate-200" };
+                                return (
+                                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${iconBg} group-hover:opacity-90 transition-opacity`}>
+                                    <Icon className={`w-6 h-6 ${iconColor}`} />
+                                  </div>
+                                );
+                              })()}
                               <div className="min-w-0">
                                 <p className="font-bold text-lg text-slate-800 truncate">{rm.title}</p>
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  {isUploaded && originalFileName && (
-                                    <span className="text-sm text-slate-400 truncate max-w-[220px]">{originalFileName}</span>
+                                  {isUploaded && fileName && (
+                                    <span className="text-sm text-slate-400 truncate max-w-[220px]">{fileName}</span>
                                   )}
                                   {isUploaded && sizeLabel && (
-                                    <>
-                                      <span className="text-slate-300 text-xs">·</span>
-                                      <span className="text-sm text-slate-400">{sizeLabel}</span>
-                                    </>
+                                    <><span className="text-slate-300 text-xs">·</span>
+                                    <span className="text-sm text-slate-400">{sizeLabel}</span></>
                                   )}
                                   {isUploaded && ext && (
-                                    <>
-                                      <span className="text-slate-300 text-xs">·</span>
-                                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{ext}</span>
-                                    </>
+                                    <><span className="text-slate-300 text-xs">·</span>
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{ext}</span></>
                                   )}
                                   {!isUploaded && rm.link && (
                                     <span className="text-sm text-slate-400 truncate max-w-[200px]">{rm.link}</span>
@@ -473,57 +469,23 @@ export default async function StudentCourseView({
                               </div>
                             </div>
 
-                            {/* Open Material — embedded viewer, no new tab, no download */}
+                            {/* Open Material via FileViewerModal */}
                             {fileUrl && (
-                              <MaterialViewerModal
+                              <FileViewerModal
                                 url={fileUrl}
                                 title={rm.title}
-                                ext={ext}
+                                fileName={fileName}
                                 mimeType={mimeType}
+                                fileSize={fileSize}
                                 materialId={rm.id}
-                                activityMessage={`Opened reading material: ${rm.title}`}
                               >
                                 <Button className="ml-4 shrink-0 bg-violet-600 hover:bg-violet-700 text-white shadow-sm">
                                   <Eye className="w-4 h-4 mr-2" />
                                   Open Material
                                 </Button>
-                              </MaterialViewerModal>
+                              </FileViewerModal>
                             )}
                           </div>
-
-                          {/* Inline image preview */}
-                          {isUploaded && isImage && fileUrl && (
-                            <div className="px-5 pb-5">
-                              <div className="rounded-lg overflow-hidden border border-slate-100 bg-slate-50 max-h-64 flex items-center justify-center">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={fileUrl}
-                                  alt={rm.title}
-                                  className="max-h-64 max-w-full object-contain"
-                                  loading="lazy"
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Inline PDF preview via iframe */}
-                          {isUploaded && isPdf && fileUrl && (
-                            <div className="px-5 pb-5">
-                              <details className="group/pdf">
-                                <summary className="text-xs font-semibold text-violet-600 hover:text-violet-800 cursor-pointer select-none mb-2">
-                                  Preview PDF ▾
-                                </summary>
-                                <div className="rounded-lg overflow-hidden border border-slate-100">
-                                  <iframe
-                                    src={`${fileUrl}#toolbar=0`}
-                                    className="w-full h-96 bg-slate-50"
-                                    title={rm.title}
-                                    loading="lazy"
-                                  />
-                                </div>
-                              </details>
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -581,17 +543,20 @@ export default async function StudentCourseView({
                               existingSubmission={existingSub ? {
                                 id: existingSub.id,
                                 driveLink: existingSub.driveLink,
-                                fileUrl: existingSub.fileUrl ?? null,
-                                publicId: existingSub.publicId ?? null,
-                                fileType: existingSub.fileType ?? null,
-                                mimeType: existingSub.mimeType ?? null,
-                                fileSize: existingSub.fileSize ?? null,
+                                // New normalized file relation
+                                fileId: (existingSub as unknown as { fileId?: string | null }).fileId ?? null,
+                                file:   (existingSub as unknown as { file?: unknown }).file as never ?? null,
+                                // Legacy fallback fields
+                                fileUrl:          existingSub.fileUrl          ?? null,
+                                fileType:         existingSub.fileType         ?? null,
+                                mimeType:         existingSub.mimeType         ?? null,
+                                fileSize:         existingSub.fileSize         ?? null,
                                 originalFileName: existingSub.originalFileName ?? null,
-                                grade: existingSub.grade,
-                                maxGrade: existingSub.maxGrade,
-                                feedback: existingSub.feedback,
+                                grade:       existingSub.grade,
+                                maxGrade:    existingSub.maxGrade,
+                                feedback:    existingSub.feedback,
                                 submittedAt: existingSub.submittedAt.toISOString(),
-                                gradedAt: existingSub.gradedAt?.toISOString() ?? null,
+                                gradedAt:    existingSub.gradedAt?.toISOString() ?? null,
                               } : null}
                             />
                           </CardContent>

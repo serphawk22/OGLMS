@@ -124,6 +124,7 @@ export function MaterialViewerModal({
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [iframeError, setIframeError] = useState(false);
+  const [cldBlock, setCldBlock] = useState(false);
 
   // Determine preview mode ONCE on render
   const canPreview = isPreviewable(ext, mimeType);
@@ -159,6 +160,7 @@ export function MaterialViewerModal({
     setLoading(true);
     setIframeLoaded(false);
     setIframeError(false);
+    setCldBlock(false);
     trackView();
   }, [canPreview, url, ext, trackView]);
 
@@ -167,6 +169,7 @@ export function MaterialViewerModal({
     setLoading(false);
     setIframeLoaded(false);
     setIframeError(false);
+    setCldBlock(false);
   }, []);
 
   // Close on Escape
@@ -187,13 +190,33 @@ export function MaterialViewerModal({
   useEffect(() => {
     if (!open || !loading || !canPreview) return;
     const timer = setTimeout(() => {
-      if (!iframeLoaded) {
+      if (!iframeLoaded && !cldBlock) {
         setLoading(false);
         setIframeError(true);
       }
     }, 15_000);
     return () => clearTimeout(timer);
-  }, [open, loading, iframeLoaded, canPreview]);
+  }, [open, loading, iframeLoaded, canPreview, cldBlock]);
+
+  // Check if PDF access is blocked by Cloudinary (401 error)
+  useEffect(() => {
+    if (!open || !canPreview) return;
+    let active = true;
+    fetch(url, { method: "GET" })
+      .then((res) => {
+        if (!active) return;
+        if (res.status === 401) {
+          setCldBlock(true);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to pre-check file access:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, url, canPreview]);
 
   // ── copy-link helper ─────────────────────────────────────────────────────
   const handleCopy = useCallback(async () => {
@@ -306,20 +329,28 @@ export function MaterialViewerModal({
                 </div>
               )}
 
-              {/* iframe error fallback */}
-              {iframeError && !loading && (
+              {/* Cloudinary PDF Block Error */}
+              {cldBlock ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
-                  <div className="bg-slate-800 border border-amber-500/30 rounded-2xl px-10 py-10 flex flex-col items-center gap-4 max-w-md w-full shadow-xl">
+                  <div className="bg-slate-800 border border-amber-500/30 rounded-2xl px-10 py-8 flex flex-col items-center gap-4 max-w-md w-full shadow-xl">
                     <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center">
                       <AlertTriangle className="w-7 h-7 text-amber-400" />
                     </div>
                     <h3 className="text-lg font-bold text-white text-center">
-                      Preview Unavailable
+                      PDF Blocked (401 Unauthorized)
                     </h3>
-                    <p className="text-slate-400 text-sm text-center leading-relaxed">
-                      This file could not be embedded. Try downloading it or
-                      opening it directly.
+                    <p className="text-slate-400 text-xs text-center leading-relaxed">
+                      PDF delivery is restricted in your Cloudinary account. 
+                      To allow your LMS platform to show uploaded PDFs:
                     </p>
+                    <div className="text-left w-full bg-slate-900 border border-slate-700/60 rounded-xl p-4 space-y-2 text-xs text-slate-300">
+                      <ol className="list-decimal pl-4 space-y-1">
+                        <li>Log in to your <strong>Cloudinary Console</strong>.</li>
+                        <li>Open <strong>Settings</strong> (gear icon) &gt; <strong>Security</strong>.</li>
+                        <li>Scroll to <strong>PDF and ZIP files delivery</strong>.</li>
+                        <li>Enable <strong>"Allow delivery of PDF and ZIP files"</strong> and save your changes.</li>
+                      </ol>
+                    </div>
                     <div className="flex flex-col gap-3 w-full mt-2">
                       <a
                         href={url}
@@ -329,29 +360,9 @@ export function MaterialViewerModal({
                         className="w-full"
                       >
                         <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
-                          <Download className="w-4 h-4 mr-2" /> Download File
+                          <Download className="w-4 h-4 mr-2" /> Download PDF
                         </Button>
                       </a>
-                      <button
-                        onClick={() => window.open(getOpenUrl(url, ext), "_blank", "noopener,noreferrer")}
-                        className="w-full"
-                        suppressHydrationWarning
-                      >
-                        <Button variant="outline" className="w-full border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white">
-                          <ExternalLink className="w-4 h-4 mr-2" /> Open in New Tab
-                        </Button>
-                      </button>
-                      <Button
-                        onClick={handleCopy}
-                        variant="outline"
-                        className="w-full border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white"
-                      >
-                        {copied ? (
-                          <><Check className="w-4 h-4 mr-2 text-emerald-400" />Copied!</>
-                        ) : (
-                          <><Copy className="w-4 h-4 mr-2" />Copy Link</>
-                        )}
-                      </Button>
                     </div>
                     <button
                       onClick={handleClose}
@@ -361,20 +372,79 @@ export function MaterialViewerModal({
                     </button>
                   </div>
                 </div>
-              )}
+              ) : (
+                <>
+                  {/* iframe error fallback */}
+                  {iframeError && !loading && (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
+                      <div className="bg-slate-800 border border-amber-500/30 rounded-2xl px-10 py-10 flex flex-col items-center gap-4 max-w-md w-full shadow-xl">
+                        <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center">
+                          <AlertTriangle className="w-7 h-7 text-amber-400" />
+                        </div>
+                        <h3 className="text-lg font-bold text-white text-center">
+                          Preview Unavailable
+                        </h3>
+                        <p className="text-slate-400 text-sm text-center leading-relaxed">
+                          This file could not be embedded. Try downloading it or
+                          opening it directly.
+                        </p>
+                        <div className="flex flex-col gap-3 w-full mt-2">
+                          <a
+                            href={url}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full"
+                          >
+                            <Button className="w-full bg-violet-600 hover:bg-violet-700 text-white">
+                              <Download className="w-4 h-4 mr-2" /> Download File
+                            </Button>
+                          </a>
+                          <button
+                            onClick={() => window.open(getOpenUrl(url, ext), "_blank", "noopener,noreferrer")}
+                            className="w-full"
+                            suppressHydrationWarning
+                          >
+                            <Button variant="outline" className="w-full border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white">
+                              <ExternalLink className="w-4 h-4 mr-2" /> Open in New Tab
+                            </Button>
+                          </button>
+                          <Button
+                            onClick={handleCopy}
+                            variant="outline"
+                            className="w-full border-slate-600 text-slate-200 hover:bg-slate-700 hover:text-white"
+                          >
+                            {copied ? (
+                              <><Check className="w-4 h-4 mr-2 text-emerald-400" />Copied!</>
+                            ) : (
+                              <><Copy className="w-4 h-4 mr-2" />Copy Link</>
+                            )}
+                          </Button>
+                        </div>
+                        <button
+                          onClick={handleClose}
+                          className="text-xs text-slate-500 hover:text-slate-300 mt-1 transition-colors" suppressHydrationWarning
+                        >
+                          Go back to course
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-              {/* iframe (PDF / images / txt) */}
-              {!iframeError && (
-                <iframe
-                  key={embedUrl}
-                  src={embedUrl}
-                  title={title}
-                  className="flex-1 w-full border-0 bg-white"
-                  onLoad={handleIframeLoad}
-                  style={{ opacity: iframeLoaded ? 1 : 0, transition: "opacity 0.3s ease" }}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-                  referrerPolicy="no-referrer"
-                />
+                  {/* iframe (PDF / images / txt) */}
+                  {!iframeError && (
+                    <iframe
+                      key={embedUrl}
+                      src={embedUrl}
+                      title={title}
+                      className="flex-1 w-full border-0 bg-white"
+                      onLoad={handleIframeLoad}
+                      style={{ opacity: iframeLoaded ? 1 : 0, transition: "opacity 0.3s ease" }}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </>
               )}
             </>
           )}

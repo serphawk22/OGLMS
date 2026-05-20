@@ -1,40 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { jwtVerify } from "jose";
+import { validateFileMetadata } from "@/lib/validation";
+import { getFileExtension, sanitizeFileName, detectMimeType } from "@/lib/file-utils";
 
 export const runtime = "nodejs";
 
 const SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? "secret");
-
-// ── Blocked file extensions (security) ───────────────────────────────────────
-
-const BLOCKED_EXTENSIONS = new Set([
-  "exe", "bat", "cmd", "sh", "msi", "dll", "ps1", "vbs",
-  "jar", "com", "scr", "pif", "reg", "inf", "sys",
-]);
-
-const BLOCKED_MIME_PREFIXES = [
-  "application/x-msdownload",
-  "application/x-msdos-program",
-  "application/x-executable",
-];
-
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function sanitizeFileName(name: string): string {
-  return name
-    .replace(/[/\\]/g, "")
-    .replace(/[\x00-\x1f]/g, "")
-    .replace(/[^a-zA-Z0-9.\-_ ]/g, "_")
-    .slice(0, 200);
-}
-
-function getExtension(filename: string): string {
-  const parts = filename.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
-}
 
 async function getUser(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
@@ -47,197 +19,128 @@ async function getUser(req: NextRequest) {
   }
 }
 
-// ── POST /api/reading-materials/upload ───────────────────────────────────────
-// Accepts multipart/form-data: file (File), title (string), courseId (string)
-// Auth: INSTRUCTOR only.
-// Uses lms_materials Cloudinary preset (separate from lms_recordings).
+/**
+ * POST /api/reading-materials/upload
+ *
+ * Accepts JSON body (file was already uploaded browser → Cloudinary):
+ * {
+ *   courseId:       string
+ *   title:          string
+ *   url:            string   ← Cloudinary secure_url
+ *   publicId:       string   ← Cloudinary public_id
+ *   resourceType:   string   ← Cloudinary resource_type (image|video|raw)
+ *   originalName:   string
+ *   mimeType:       string
+ *   size:           number
+ * }
+ *
+ * Creates an UploadedFile record then a ReadingMaterial linked to it.
+ * Auth: INSTRUCTOR or ADMIN of the course's organisation.
+ */
 export async function POST(req: NextRequest) {
   const user = await getUser(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (user.role !== "INSTRUCTOR" && user.role !== "ADMIN") {
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (user.role !== "INSTRUCTOR" && user.role !== "ADMIN")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
-  let formData: FormData;
+  let body: {
+    courseId: string;
+    title: string;
+    url: string;
+    publicId: string;
+    resourceType: string;
+    originalName: string;
+    mimeType?: string;
+    size: number;
+  };
+
   try {
-    formData = await req.formData();
+    body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const file = formData.get("file") as File | null;
-  const title = (formData.get("title") as string | null)?.trim();
-  const courseId = (formData.get("courseId") as string | null)?.trim();
+  const { courseId, title, url, publicId, resourceType, originalName, size } = body;
+  const rawMime = body.mimeType ?? "";
 
-  if (!file || !title || !courseId) {
+  if (!courseId || !title?.trim() || !url || !publicId || !originalName) {
     return NextResponse.json(
-      { error: "file, title, and courseId are required" },
-      { status: 400 }
+      { error: "courseId, title, url, publicId, and originalName are required." },
+      { status: 400 },
     );
   }
 
-  // ── File size validation ──────────────────────────────────────────────────
-  if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: `File too large. Maximum allowed size is 50 MB (received ${(file.size / 1024 / 1024).toFixed(1)} MB).` },
-      { status: 400 }
-    );
-  }
-  if (file.size === 0) {
-    return NextResponse.json({ error: "File is empty." }, { status: 400 });
+  // ── Normalize & validate ───────────────────────────────────────────────────
+  const safeName = sanitizeFileName(originalName);
+  const extension = getFileExtension(safeName);
+  const mimeType  = detectMimeType(safeName, rawMime);
+
+  const validationError = validateFileMetadata(size, safeName, mimeType);
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  // ── Extension + MIME validation ───────────────────────────────────────────
-  const originalFileName = sanitizeFileName(file.name || "upload");
-  const ext = getExtension(originalFileName);
-  const mimeType = file.type || "application/octet-stream";
-
-  if (BLOCKED_EXTENSIONS.has(ext)) {
-    return NextResponse.json(
-      { error: `File type ".${ext}" is not allowed for security reasons.` },
-      { status: 400 }
-    );
-  }
-  if (BLOCKED_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix))) {
-    return NextResponse.json(
-      { error: "This file type is not allowed for security reasons." },
-      { status: 400 }
-    );
-  }
-
-  // ── Verify uploader is an org member (INSTRUCTOR or ADMIN) ────────────────
-  // Any instructor/admin in the same org can upload materials to any course.
-  // We do NOT restrict to course creator — admins create courses for instructors.
+  // ── Verify org membership ──────────────────────────────────────────────────
   try {
     const course = await prisma.course.findUnique({
       where: { id: courseId },
       select: { organizationId: true },
     });
-    if (!course) {
-      return NextResponse.json({ error: "Course not found." }, { status: 404 });
-    }
+    if (!course) return NextResponse.json({ error: "Course not found." }, { status: 404 });
 
     const membership = await prisma.organizationMember.findUnique({
       where: { userId_organizationId: { userId: user.userId, organizationId: course.organizationId } },
       select: { role: true },
     });
     if (!membership || (membership.role !== "INSTRUCTOR" && membership.role !== "ADMIN")) {
-      console.warn(
-        `[POST /api/reading-materials/upload] Forbidden: user=${user.userId} role=${user.role} is not an INSTRUCTOR/ADMIN in org for course=${courseId}`
+      return NextResponse.json(
+        { error: "Forbidden. You must be an instructor or admin in this organisation." },
+        { status: 403 },
       );
-      return NextResponse.json({ error: "Forbidden. You must be an instructor or admin in this organisation." }, { status: 403 });
     }
-
-    console.log(
-      `[POST /api/reading-materials/upload] Access granted: user=${user.userId} memberRole=${membership.role} course=${courseId}`
-    );
   } catch (err) {
     console.error("[POST /api/reading-materials/upload] DB access check failed:", err);
     return NextResponse.json({ error: "Internal Server Error." }, { status: 500 });
   }
 
-  // ── Upload to Cloudinary (lms_materials preset, resource_type: auto) ──────
-  // Uses NEXT_PUBLIC_CLOUDINARY_MATERIALS_PRESET (lms_materials) — completely
-  // separate from NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET (lms_recordings) which
-  // is used exclusively by the live recording system. Do NOT mix them.
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_MATERIALS_PRESET;
-
-  if (!cloudName || !uploadPreset) {
-    console.error(
-      "[POST /api/reading-materials/upload] Missing env vars: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME or NEXT_PUBLIC_CLOUDINARY_MATERIALS_PRESET"
-    );
-    return NextResponse.json(
-      { error: "File storage is not configured. Please contact the administrator." },
-      { status: 500 }
-    );
-  }
-
-  let cloudinaryData: {
-    secure_url: string;
-    public_id: string;
-    resource_type: string;
-    bytes: number;
-    format: string;
-  };
-
+  // ── Create UploadedFile + ReadingMaterial in a transaction ─────────────────
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const blob = new Blob([buffer], { type: mimeType });
+    const material = await prisma.$transaction(async (tx) => {
+      // 1. Create the normalised file record
+      const uploadedFile = await tx.uploadedFile.create({
+        data: {
+          originalName: safeName,
+          extension,
+          mimeType,
+          size,
+          url,
+          publicId,
+          resourceType: resourceType ?? "raw",
+          uploadedBy: user.userId,
+        },
+      });
 
-    const uploadForm = new FormData();
-    uploadForm.append("file", blob, originalFileName);
-    uploadForm.append("upload_preset", uploadPreset);
-    // resource_type: "auto" — Cloudinary detects whether it's image/video/raw.
-    // The folder is set in the lms_materials preset on Cloudinary dashboard.
-    // We do NOT manually set folder here to let the preset control it.
-
-    const uploadRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-      { method: "POST", body: uploadForm }
-    );
-
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      console.error(
-        `[POST /api/reading-materials/upload] Cloudinary error (${uploadRes.status}):`,
-        errText
-      );
-      return NextResponse.json(
-        { error: `Upload to storage failed (${uploadRes.status}). Please try again.` },
-        { status: 502 }
-      );
-    }
-
-    cloudinaryData = await uploadRes.json();
-
-    if (!cloudinaryData.secure_url || !cloudinaryData.public_id) {
-      throw new Error("Cloudinary response missing secure_url or public_id.");
-    }
-
-    console.log(
-      `[POST /api/reading-materials/upload] Cloudinary upload OK: public_id=${cloudinaryData.public_id} resource_type=${cloudinaryData.resource_type}`
-    );
-  } catch (err) {
-    console.error("[POST /api/reading-materials/upload] Cloudinary upload error:", err);
-    return NextResponse.json(
-      { error: "Failed to upload file to storage. Please try again." },
-      { status: 502 }
-    );
-  }
-
-  // ── Persist metadata in database ──────────────────────────────────────────
-  try {
-    const material = await prisma.readingMaterial.create({
-      data: {
-        title,
-        courseId,
-        link: undefined,                        // only used by old Google Drive records
-        fileUrl: cloudinaryData.secure_url,
-        originalFileName,
-        publicId: cloudinaryData.public_id,
-        fileType: ext || (cloudinaryData.format ?? ""),
-        mimeType,
-        // Store the actual resource_type Cloudinary used (image | video | raw)
-        // so we can pass it back to Cloudinary's destroy endpoint on deletion.
-        resourceType: cloudinaryData.resource_type,
-        fileSize: file.size,
-        uploadedBy: user.userId,
-      },
+      // 2. Create ReadingMaterial referencing the file
+      return tx.readingMaterial.create({
+        data: {
+          title: title.trim(),
+          courseId,
+          fileId: uploadedFile.id,
+          uploadedBy: user.userId,
+        },
+        include: { file: true },
+      });
     });
 
     console.log(
-      `[POST /api/reading-materials/upload] Saved material id=${material.id} course=${courseId} instructor=${user.userId}`
+      `[POST /api/reading-materials/upload] Created material id=${material.id} course=${courseId}`,
     );
     return NextResponse.json({ material }, { status: 201 });
   } catch (err) {
     console.error("[POST /api/reading-materials/upload] DB create failed:", err);
     return NextResponse.json(
       { error: "File uploaded but failed to save record. Please contact support." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

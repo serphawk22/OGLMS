@@ -12,6 +12,9 @@ import {
   MessageSquare
 } from "lucide-react";
 
+// Force dynamic — reads cookies and runs a Prisma query on every request.
+export const dynamic = "force-dynamic";
+
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default_secret");
 
 export default async function StudentLayout({

@@ -338,7 +338,10 @@ export default async function CourseBuilderPage({
   try {
     const allSubs = await prisma.assignmentSubmission.findMany({
       where: { assignmentId: { in: course.assignments.map((a) => a.id) } },
-      include: { student: { select: { id: true, name: true, email: true } } },
+      include: {
+        student: { select: { id: true, name: true, email: true } },
+        file: true,
+      },
       orderBy: { submittedAt: 'desc' },
     }) as SubmissionWithStudent[];
     for (const s of allSubs) {
@@ -655,17 +658,20 @@ export default async function CourseBuilderPage({
                           id: s.id,
                           studentId: s.studentId,
                           driveLink: s.driveLink,
-                          fileUrl: s.fileUrl ?? null,
-                          publicId: s.publicId ?? null,
-                          fileType: s.fileType ?? null,
-                          mimeType: s.mimeType ?? null,
-                          fileSize: s.fileSize ?? null,
+                          // New normalized file relation
+                          fileId: (s as unknown as { fileId?: string | null }).fileId ?? null,
+                          file:   (s as unknown as { file?: unknown }).file as never ?? null,
+                          // Legacy fallback fields
+                          fileUrl:          s.fileUrl          ?? null,
+                          fileType:         s.fileType         ?? null,
+                          mimeType:         s.mimeType         ?? null,
+                          fileSize:         s.fileSize         ?? null,
                           originalFileName: s.originalFileName ?? null,
-                          grade: s.grade,
+                          grade:    s.grade,
                           maxGrade: s.maxGrade,
                           feedback: s.feedback ?? null,
                           submittedAt: s.submittedAt.toISOString(),
-                          gradedAt: s.gradedAt?.toISOString() ?? null,
+                          gradedAt:    s.gradedAt?.toISOString() ?? null,
                           student: s.student,
                         }))}
                       />
