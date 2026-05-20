@@ -153,8 +153,22 @@ export function ReadingMaterialUpload({ courseId }: Props) {
       return;
     }
 
-    const cloudName    = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_MATERIALS_PRESET;
+    let cloudName    = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    let uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_MATERIALS_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      try {
+        const configRes = await fetch("/api/config");
+        if (configRes.ok) {
+          const configData = await configRes.json();
+          cloudName = cloudName || configData.cloudinaryCloudName;
+          uploadPreset = uploadPreset || configData.cloudinaryMaterialsPreset;
+        }
+      } catch (err) {
+        console.error("Failed to fetch runtime upload config:", err);
+      }
+    }
+
     if (!cloudName || !uploadPreset) {
       showToast("error", "Upload not configured. Contact administrator.");
       return;

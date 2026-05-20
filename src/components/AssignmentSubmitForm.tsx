@@ -118,8 +118,22 @@ export function AssignmentSubmitForm({
   const handleSubmit = useCallback(async () => {
     if (!selectedFile) { setError("Please select a file."); return; }
 
-    const cloudName    = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_SUBMISSIONS_PRESET;
+    let cloudName    = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    let uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_SUBMISSIONS_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      try {
+        const configRes = await fetch("/api/config");
+        if (configRes.ok) {
+          const configData = await configRes.json();
+          cloudName = cloudName || configData.cloudinaryCloudName;
+          uploadPreset = uploadPreset || configData.cloudinarySubmissionsPreset;
+        }
+      } catch (err) {
+        console.error("Failed to fetch runtime upload config:", err);
+      }
+    }
+
     if (!cloudName || !uploadPreset) {
       setError("Upload not configured. Please contact the administrator.");
       return;
